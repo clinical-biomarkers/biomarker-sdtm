@@ -1,0 +1,7 @@
+issue_id,example,artifact,field_path,agent_value,gold_value,discrepancy_type,generated_by,status,decision,decided_by,decided_at,rationale
+TROPI-001,troponin_I,SDTM-BM,BM.BMRULE,"value > reference limit AND |relative change| >= threshold within window","Value > 0.04 ng/mL AND rise or fall >= 30% within 6 h",information-loss,deepseek-ai/DeepSeek-V4.1-Flash,open,,,,"Agent emitted the generic template rule instead of the resolved decision rule"
+TROPI-002,troponin_I,SDTM-BM,BM.BMEVID,"32169400, BMK_000008",PMID:19710485,wrong-value,deepseek-ai/DeepSeek-V4.1-Flash,open,,,,"Agent cited the wrong evidence sources for the biomarker claim"
+TROPI-003,troponin_I,SDTM-BM,BM.BMASSDTC,,2026-09-01,information-loss,deepseek-ai/DeepSeek-V4.1-Flash,open,,,,"Assertion date left empty"
+TROPI-004,troponin_I,SDTM-BM,BM.BMASSAY,TNNI3TNIULTRA,TnI-Ultra,naming,deepseek-ai/DeepSeek-V4.1-Flash,open,,,,"Agent emitted internal spec_id instead of the assay trade name"
+TROPI-005,troponin_I,SDTM-LB,LB.LBGRPID,TNNI3TNIULTRA,TNIULTRA,naming,deepseek-ai/DeepSeek-V4.1-Flash,open,,,,"Group ID differs from gold convention"
+TROPI-006,troponin_I,SDTM-BM,BM.BMENTNM,"Troponin I, Cardiac Muscle","Troponin I, cardiac muscle",casing,deepseek-ai/DeepSeek-V4.1-Flash,open,,,,"Capitalization of the entity name differs from gold"

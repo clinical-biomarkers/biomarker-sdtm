@@ -1,0 +1,451 @@
+{
+  "//_note": "================================================================================",
+  "//_note_1": "tBCO TEMPLATE — Template BioCompute Object (IEEE 2791-2020).",
+  "//_note_2": "One tBCO per biomarker assay. Fill PLACEHOLDER values from assay documentation.",
+  "//_note_3": "Reference: examples/troponin_I/Troponin_I_tBCO.json, references/bco-schema.md",
+  "//_note_4": "===================================================================================",
+
+  "object_id": "https://biocomputeobject.org/PLACEHOLDER_<BIOMARKER_ASSAY>/1.0.0",
+  "//_object_id_help": "Unique, never-reused URI. Pattern: https://biocomputeobject.org/PLACEHOLDER_<assay_short_name>/<semver>",
+
+  "spec_version": "https://w3id.org/ieee/ieee-2791-schema/2791object.json",
+  "//_spec_version_help": "Pin to the IEEE 2791 schema URI (read-only). Use latest available.",
+
+  "etag": "PLACEHOLDER - SHA-256 hex digest of this JSON object",
+  "//_etag_help": "SHA-256 hex digest. Compute programmatically after the object is fully populated.",
+
+  "provenance_domain": {
+    "name": "PLACEHOLDER - Assay standard for <BIOMARKER_NAME> (<ASSAY_NAME>, <PLATFORM>)",
+    "version": "1.0.0",
+    "license": "https://creativecommons.org/licenses/by/4.0/",
+    "created": "PLACEHOLDER - ISO 8601 datetime (e.g., 2026-10-05T12:00:00.000000Z)",
+    "modified": "PLACEHOLDER - ISO 8601 datetime (same format as created)",
+    "contributors": [
+      {
+        "name": "PLACEHOLDER - Creator name",
+        "affiliation": "PLACEHOLDER - Institution",
+        "contribution": ["createdBy", "authoredBy"],
+        "email": "PLACEHOLDER@institution.edu"
+      },
+      {
+        "name": "PLACEHOLDER - Reviewer name",
+        "affiliation": "PLACEHOLDER - Institution",
+        "contribution": ["contributedBy"],
+        "email": "PLACEHOLDER@institution.edu"
+      }
+    ],
+    "review": [
+      {
+        "status": "in-review",
+        "reviewer_comment": "PLACEHOLDER - Review comments about analytical completeness",
+        "date": "PLACEHOLDER - ISO 8601 datetime",
+        "reviewer": {
+          "name": "PLACEHOLDER - Reviewer name",
+          "affiliation": "PLACEHOLDER - Institution",
+          "contribution": ["curatedBy"],
+          "email": "PLACEHOLDER@institution.edu"
+        }
+      }
+    ]
+  },
+
+  "usability_domain": [
+    "PLACEHOLDER - One-line description of the assay standard (e.g., 'Assay standard for cardiac troponin I (TnI-Ultra, ADVIA Centaur XP).')",
+    "PLACEHOLDER - What a tBCO is: 'Template BCO (tBCO): the specification for measuring one biomarker with one assay. States what is to be detected, how it is to be detected, the analytical limits within which a result is valid, when specimens are to be collected, and how a measured value is turned into a finding.'",
+    "PLACEHOLDER - Analytical values source attribution. Cite the study/paper/IFU providing performance data. Mark PLACEHOLDER fields for values not stated in available sources."
+  ],
+
+  "extension_domain": [
+    {
+      "extension_schema": "PLACEHOLDER - https://<org>/biocompute/extension_domain/1.0.0/assay_protocol/assay_protocol_extension.json",
+      "//_extension_schema_help": "URI pointing to the JSON Schema for the assay protocol extension. PLACEHOLDER until the schema is published.",
+
+      "assay_protocol_extension": {
+        "spec_id": "PLACEHOLDER - e.g., TNNI3_TNIULTRA (short: BIOMARKERGENE_ASSAYNAME)",
+        "spec_version": "1.0.0",
+        "//_spec_version_help": "Same as top-level provenance version. Bump when assay specification changes (e.g., new calibration, new reagent formulation).",
+
+        "target": {
+          "analyte_name": "PLACEHOLDER - Full analyte name (e.g., 'Troponin I, cardiac muscle')",
+          "analyte_identifiers": [
+            {
+              "namespace": "PLACEHOLDER - e.g., UniProtKB, HGNC, CHEBI",
+              "accession": "PLACEHOLDER - e.g., P19429"
+            }
+          ],
+          "entity_type": "PLACEHOLDER - protein | gene | metabolite | variant",
+          "measured_property": "PLACEHOLDER - e.g., mass concentration, activity, molar concentration",
+          "matrix": {
+            "term": "PLACEHOLDER - e.g., blood, serum, plasma, urine, CSF",
+            "curie": "PLACEHOLDER - UBERON CURIE (e.g., UBERON:0000178)"
+          },
+          "detects": "PLACEHOLDER - What an abnormal value means biologically. (e.g., 'Release of cardiac troponin I into the circulation following myocyte injury. An increase above the reference limit is the finding.')"
+        },
+
+        "assay": {
+          "assay_name": "PLACEHOLDER - e.g., TnI-Ultra",
+          "manufacturer": "PLACEHOLDER - e.g., Siemens Healthcare Diagnostics",
+          "platform": "PLACEHOLDER - e.g., ADVIA Centaur XP",
+          "method": "PLACEHOLDER - IMMUNOASSAY | ELISA | CHEMILUMINESCENT | PCR | MASS_SPEC | ENZYMATIC | OTHER",
+          "assay_generation": "PLACEHOLDER - e.g., sensitive, high-sensitivity, contemporary, point-of-care",
+          "regulatory_status": "PLACEHOLDER - CE-marked | FDA-approved | FDA-cleared | investigational | research-use-only",
+          "calibration_traceability": "PLACEHOLDER - Traceability to reference standard or manufacturer calibrator lineage. Note any lack of certified reference material.",
+          "loinc_code": "PLACEHOLDER - LOINC code for this assay (e.g., 10839-9). Leave empty if unknown."
+        },
+
+        "specimen_requirements": {
+          "specimen_type": "PLACEHOLDER - e.g., BLOOD (serum vs plasma if known; mark as PLACEHOLDER if not stated)",
+          "specimen_curie": "PLACEHOLDER - UBERON CURIE (e.g., UBERON:0000178)",
+          "container_additive": "PLACEHOLDER - anticoagulant, gel separator, preservative (or 'None')",
+          "minimum_volume": "PLACEHOLDER - minimum volume in mL or specified as e.g., '500 µL'",
+          "handling": "PLACEHOLDER - centrifugation speed, time, temperature requirements",
+          "stability": "PLACEHOLDER - time and temperature limits from collection to assay"
+        },
+
+        "subject_preconditions": [
+          {
+            "condition": "PLACEHOLDER - e.g., 'time of symptom onset recorded'",
+            "required": true,
+            "rationale": "PLACEHOLDER - why this precondition matters for interpretation"
+          }
+        ],
+        "//_subject_preconditions_help": "Array of preconditions for specimen collection. Expand with additional entries as needed.",
+
+        "sampling_schedule": {
+          "anchor": "PLACEHOLDER - e.g., hospital admission, symptom onset, study baseline",
+          "serial_required": true,
+          "timepoints": [
+            {
+              "label": "PLACEHOLDER - e.g., admission",
+              "offset": 0,
+              "unit": "PLACEHOLDER - hours | minutes | days"
+            },
+            {
+              "label": "PLACEHOLDER - e.g., 3h",
+              "offset": 3,
+              "unit": "PLACEHOLDER - hours"
+            }
+          ],
+          "rationale": "PLACEHOLDER - why serial is needed (e.g., 'a single admission value cannot distinguish acute release from chronic elevation; the rise or fall across serial samples is part of the finding')"
+        },
+
+        "analytical_performance": {
+          "limit_of_blank": {
+            "value": null,
+            "unit": "PLACEHOLDER - ng/mL | µg/L | U/L | mmol/L | etc.",
+            "reported": false
+          },
+          "limit_of_detection": {
+            "value": 0.0,
+            "unit": "PLACEHOLDER - same unit as LoB"
+          },
+          "limit_of_quantitation": {
+            "value": 0.0,
+            "unit": "PLACEHOLDER",
+            "basis": "PLACEHOLDER - e.g., 'concentration at 10% CV' or '20% CV'"
+          },
+          "upper_limit_of_quantitation": {
+            "value": 0.0,
+            "unit": "PLACEHOLDER"
+          },
+          "measuring_range": {
+            "low": 0.0,
+            "high": 0.0,
+            "unit": "PLACEHOLDER"
+          },
+          "imprecision": [
+            {
+              "concentration": 0.0,
+              "unit": "PLACEHOLDER",
+              "cv_pct": 0.0
+            }
+          ],
+          "linearity": "PLACEHOLDER - Description or 'Not stated'",
+          "interferences": [
+            "PLACEHOLDER - list known interferences (endogenous substances, drugs, haemolysis, etc.)",
+            "PLACEHOLDER - interference thresholds from IFU if available"
+          ]
+        },
+
+        "reference_limits": [
+          {
+            "type": "PLACEHOLDER - 99th percentile | upper reference limit | decision limit | etc.",
+            "direction": "PLACEHOLDER - upper | lower | both",
+            "value": 0.0,
+            "unit": "PLACEHOLDER",
+            "strata": [],
+            "population": {
+              "source": "PLACEHOLDER - reference study or population",
+              "n": 0
+            }
+          }
+        ],
+
+        "derived_quantities": [
+          {
+            "name": "PLACEHOLDER - e.g., relative change, absolute change, ratio, AUC",
+            "formula": "PLACEHOLDER - mathematical expression",
+            "unit": "PLACEHOLDER - unit of derived quantity",
+            "inputs": [
+              "PLACEHOLDER - list of input measurements"
+            ]
+          }
+        ],
+
+        "interpretation_rules": [
+          {
+            "rule_id": "R1",
+            "outcome": "PLACEHOLDER - e.g., 'acute myocardial injury'",
+            "expression": "PLACEHOLDER - e.g., 'value > reference limit AND |relative change| >= threshold within window'",
+            "components": [
+              {
+                "type": "PLACEHOLDER - threshold | delta | window | direction",
+                "param": "PLACEHOLDER - parameter name (e.g., applied_reference_limit_type)",
+                "value": "PLACEHOLDER or numerical value",
+                "tunable": true
+              }
+            ]
+          }
+        ],
+
+        "repeat_criteria": [
+          {
+            "trigger": "PLACEHOLDER - condition triggering a repeat",
+            "action": "PLACEHOLDER - what to do",
+            "rationale": "PLACEHOLDER - evidence basis"
+          }
+        ],
+
+        "reporting_convention": {
+          "unit": "PLACEHOLDER",
+          "decimal_places": 3,
+          "censoring": "PLACEHOLDER - e.g., 'values below the limit of quantitation are reported as <LLOQ and excluded from numeric summaries'"
+        }
+      }
+    }
+  ],
+
+  "description_domain": {
+    "keywords": [
+      "PLACEHOLDER - analyte name (e.g., cardiac troponin I)",
+      "PLACEHOLDER - assay method (e.g., immunoassay)",
+      "PLACEHOLDER - clinical context (e.g., myocardial injury)",
+      "PLACEHOLDER - key features (e.g., serial sampling)",
+      "PLACEHOLDER - other relevant keywords"
+    ],
+    "xref": [
+      {
+        "namespace": "PLACEHOLDER - e.g., uniprot",
+        "name": "PLACEHOLDER - e.g., UniProtKB",
+        "ids": ["PLACEHOLDER - e.g., P19429"],
+        "access_time": "PLACEHOLDER - ISO 8601 datetime"
+      },
+      {
+        "namespace": "PLACEHOLDER - e.g., loinc",
+        "name": "PLACEHOLDER - e.g., LOINC",
+        "ids": ["PLACEHOLDER - LOINC code"],
+        "access_time": "PLACEHOLDER"
+      },
+      {
+        "namespace": "PLACEHOLDER - e.g., pubmed",
+        "name": "PLACEHOLDER - e.g., PubMed",
+        "ids": ["PLACEHOLDER - PMID"],
+        "access_time": "PLACEHOLDER"
+      }
+    ],
+    "platform": [
+      "PLACEHOLDER - instrument platform name (e.g., ADVIA Centaur XP)"
+    ],
+    "pipeline_steps": [
+      {
+        "step_number": 1,
+        "name": "collect_specimen",
+        "description": "PLACEHOLDER - Collect the specimen described in specimen_requirements at each timepoint in sampling_schedule, after confirming subject_preconditions.",
+        "version": "1.0.0",
+        "prerequisite": [],
+        "input_list": [
+          {
+            "uri": "PLACEHOLDER",
+            "filename": "worklist.csv"
+          }
+        ],
+        "output_list": [
+          {
+            "uri": "PLACEHOLDER",
+            "filename": "specimens.csv"
+          }
+        ]
+      },
+      {
+        "step_number": 2,
+        "name": "measure",
+        "description": "PLACEHOLDER - Measure the analyte on the assay in assay_protocol_extension.assay. Flag results outside the measuring range per reporting_convention.",
+        "version": "1.0.0",
+        "prerequisite": [],
+        "input_list": [
+          {
+            "uri": "PLACEHOLDER",
+            "filename": "specimens.csv"
+          }
+        ],
+        "output_list": [
+          {
+            "uri": "PLACEHOLDER",
+            "filename": "concentrations.csv"
+          }
+        ]
+      },
+      {
+        "step_number": 3,
+        "name": "derive",
+        "description": "PLACEHOLDER - Compute the quantities in derived_quantities from the serial values.",
+        "version": "1.0.0",
+        "prerequisite": [],
+        "input_list": [
+          {
+            "uri": "PLACEHOLDER",
+            "filename": "concentrations.csv"
+          }
+        ],
+        "output_list": [
+          {
+            "uri": "PLACEHOLDER",
+            "filename": "derived.csv"
+          }
+        ]
+      },
+      {
+        "step_number": 4,
+        "name": "classify",
+        "description": "PLACEHOLDER - Apply interpretation_rules to the measured and derived values and emit the finding.",
+        "version": "1.0.0",
+        "prerequisite": [],
+        "input_list": [
+          {
+            "uri": "PLACEHOLDER",
+            "filename": "derived.csv"
+          }
+        ],
+        "output_list": [
+          {
+            "uri": "PLACEHOLDER",
+            "filename": "results.csv"
+          }
+        ]
+      }
+    ]
+  },
+
+  "execution_domain": {
+    "script": [
+      {
+        "uri": {
+          "uri": "PLACEHOLDER - URI of the assay SOP or analyser protocol",
+          "filename": "assay_sop.pdf"
+        }
+      }
+    ],
+    "script_driver": "manual",
+    "//_script_driver_help": "Use 'manual' for assays with human-in-the-loop execution. Use 'cwl-runner', 'shell', or other if automated.",
+    "software_prerequisites": [
+      {
+        "name": "PLACEHOLDER - instrument software name (e.g., ADVIA Centaur XP software)",
+        "version": "PLACEHOLDER - instrument software version",
+        "uri": {
+          "uri": "PLACEHOLDER - manufacturer documentation URI"
+        }
+      }
+    ],
+    "external_data_endpoints": [],
+    "environment_variables": {}
+  },
+
+  "parametric_domain": [
+    {
+      "param": "PLACEHOLDER - parameter name (e.g., applied_reference_limit_type)",
+      "value": "PLACEHOLDER - e.g., 99th percentile",
+      "unit": "",
+      "step": "classify"
+    },
+    {
+      "param": "PLACEHOLDER - e.g., relative_change_threshold_pct",
+      "value": "PLACEHOLDER - e.g., 30",
+      "unit": "PLACEHOLDER - e.g., %",
+      "step": "classify"
+    },
+    {
+      "param": "below_lloq_handling",
+      "value": "PLACEHOLDER - e.g., values below LoQ are reported as <LLOQ and excluded from numeric summaries",
+      "unit": "",
+      "step": "classify"
+    }
+  ],
+
+  "io_domain": {
+    "input_subdomain": [
+      {
+        "mediatype": "application/pdf",
+        "uri": {
+          "uri": "PLACEHOLDER - manufacturer instructions for use URI",
+          "filename": "PLACEHOLDER_instructions_for_use.pdf",
+          "access_time": "PLACEHOLDER - ISO 8601 datetime"
+        }
+      },
+      {
+        "mediatype": "application/pdf",
+        "uri": {
+          "uri": "PLACEHOLDER - study/validation paper DOI",
+          "filename": "PLACEHOLDER_study_reference.pdf",
+          "access_time": "PLACEHOLDER"
+        }
+      },
+      {
+        "mediatype": "application/pdf",
+        "uri": {
+          "uri": "PLACEHOLDER - reference limit derivation source",
+          "filename": "reference_limit_derivation.pdf",
+          "access_time": "PLACEHOLDER"
+        }
+      },
+      {
+        "mediatype": "application/pdf",
+        "uri": {
+          "uri": "PLACEHOLDER - local lab method validation report",
+          "filename": "method_validation_report.pdf",
+          "access_time": "PLACEHOLDER"
+        }
+      }
+    ],
+    "output_subdomain": [
+      {
+        "mediatype": "application/xml",
+        "uri": {
+          "uri": "PLACEHOLDER - define.xml fragment for LB and SUPPLB records",
+          "filename": "define_fragment.xml"
+        }
+      },
+      {
+        "mediatype": "application/json",
+        "uri": {
+          "uri": "PLACEHOLDER - record template naming the LB variables and SUPPLB qualifiers a conforming result must populate",
+          "filename": "lb_supplb_record_template.json"
+        }
+      }
+    ]
+  },
+
+  "error_domain": {
+    "empirical_error": {
+      "imprecision_at_decision_limit": "PLACEHOLDER - describe how analytical imprecision affects values near the decision limit",
+      "detection_floor": "PLACEHOLDER - left-censoring: values below LoD are not quantifiable",
+      "physiological_confounders": "PLACEHOLDER - factors that alter concentrations independently of the condition (age, renal function, etc.)",
+      "reference_population_transferability": "PLACEHOLDER - caveats about applying reference limits to a different population"
+    },
+    "algorithmic_error": {
+      "assay_non_harmonization": "PLACEHOLDER - if the assay is not standardized across manufacturers, document it here",
+      "threshold_is_assay_specific": "PLACEHOLDER - note that thresholds derive from this assay's imprecision, not from biology",
+      "unit_ambiguity_on_transfer": "PLACEHOLDER - warn about unit mismatches (ng/mL vs ng/L, etc.)",
+      "scope_limit": "PLACEHOLDER - e.g., 'This object specifies how to measure and interpret, not whether the biomarker is valid for any purpose.'"
+    }
+  }
+}

@@ -1,0 +1,7 @@
+samp_id,subject,study,site,visit,collect_dt,specimen,analyte_code,analyte,result,unit,instrument
+S-0001-T1,001,BM-2026-01,01,Admission,2026-03-15 08:10,Serum,TNNI3,"Troponin I, cardiac",0.021,ng/mL,ADVIA Centaur XP
+S-0001-T2,001,BM-2026-01,01,3 hours,2026-03-15 11:10,Serum,TNNI3,"Troponin I, cardiac",0.058,ng/mL,ADVIA Centaur XP
+S-0001-T3,001,BM-2026-01,01,6 hours,2026-03-15 14:10,Serum,TNNI3,"Troponin I, cardiac",0.094,ng/mL,ADVIA Centaur XP
+S-0002-T1,002,BM-2026-01,01,Admission,2026-03-16 13:55,Serum,TNNI3,"Troponin I, cardiac",<0.006,ng/mL,ADVIA Centaur XP
+S-0002-T2,002,BM-2026-01,01,3 hours,2026-03-16 16:55,Serum,TNNI3,"Troponin I, cardiac",0.008,ng/mL,ADVIA Centaur XP
+S-0002-T3,002,BM-2026-01,01,6 hours,2026-03-16 19:55,Serum,TNNI3,"Troponin I, cardiac",0.045,ng/mL,ADVIA Centaur XP

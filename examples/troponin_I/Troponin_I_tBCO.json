@@ -1,0 +1,472 @@
+{
+  "object_id": "https://biocomputeobject.org/PLACEHOLDER_Troponin_I_tBCO/1.0.0",
+  "spec_version": "https://w3id.org/ieee/ieee-2791-schema/2791object.json",
+  "etag": "bfddc5e232a17fc8a98411121b46ff6eb21ec36d7af6b75bca3d9a60d5c385d0",
+  "provenance_domain": {
+    "name": "Assay standard for the cardiac troponin I assay (TnI-Ultra, ADVIA Centaur XP)",
+    "version": "1.0.0",
+    "license": "https://creativecommons.org/licenses/by/4.0/",
+    "created": "2026-10-05T12:00:00.000000",
+    "modified": "2026-10-05T12:00:00.000000Z",
+    "contributors": [
+      {
+        "name": "Jeet Vora",
+        "affiliation": "The George Washington University",
+        "contribution": [
+          "createdBy",
+          "authoredBy"
+        ],
+        "email": "jeetvora@gwu.edu"
+      },
+      {
+        "name": "Jane Doe",
+        "affiliation": "The George Washington University",
+        "contribution": [
+          "contributedBy"
+        ],
+        "email": "PLACEHOLDER@gwu.edu"
+      }
+    ],
+    "review": [
+      {
+        "status": "in-review",
+        "reviewer_comment": "Reviewed for analytical completeness. Fields marked PLACEHOLDER require the manufacturer's instructions for use before this specification can be applied.",
+        "date": "2026-10-05T12:00:00.000000Z",
+        "reviewer": {
+          "name": "Jane Doe",
+          "affiliation": "The George Washington University",
+          "contribution": [
+            "curatedBy"
+          ],
+          "email": "PLACEHOLDER@gwu.edu"
+        }
+      }
+    ]
+  },
+  "usability_domain": [
+    "Assay standard for the cardiac troponin I assay (TnI-Ultra, ADVIA Centaur XP).",
+    "Template BCO (tBCO): the specification for measuring one biomarker with one assay. States what is to be detected, how it is to be detected, the analytical limits within which a result is valid, when specimens are to be collected, and how a measured value is turned into a finding.",
+    "Analytical values are taken from the Supplementary Appendix of Keller T et al., N Engl J Med 2009;361:868-77 (PMID 19710485). Fields marked PLACEHOLDER are not stated in that source."
+  ],
+  "extension_domain": [
+    {
+      "extension_schema": "PLACEHOLDER - https://<org>/biocompute/extension_domain/1.0.0/assay_protocol/assay_protocol_extension.json",
+      "assay_protocol_extension": {
+        "spec_id": "TNNI3_TNIULTRA",
+        "spec_version": "1.0.0",
+        "target": {
+          "analyte_name": "Troponin I, cardiac muscle",
+          "analyte_identifiers": [
+            {
+              "namespace": "UniProtKB",
+              "accession": "P19429"
+            }
+          ],
+          "entity_type": "protein",
+          "measured_property": "mass concentration",
+          "matrix": {
+            "term": "blood",
+            "curie": "UBERON:0000178"
+          },
+          "detects": "Release of cardiac troponin I into the circulation following myocyte injury. An increase above the reference limit is the finding."
+        },
+        "assay": {
+          "assay_name": "TnI-Ultra",
+          "manufacturer": "Siemens Healthcare Diagnostics",
+          "platform": "ADVIA Centaur XP",
+          "method": "IMMUNOASSAY",
+          "assay_generation": "sensitive",
+          "regulatory_status": "investigational",
+          "calibration_traceability": "None. There is no certified primary reference material for cardiac troponin I and standardization across manufacturers is considered unlikely, because monoclonal antibodies to different cTnI epitopes recognise different circulating modifications. An IFCC working group is pursuing harmonization through a pooled serum-based secondary reference material. Results are traceable only to the manufacturer's own calibrator lineage.",
+          "loinc_code": "10839-9"
+        },
+        "specimen_requirements": {
+          "specimen_type": "BLOOD (PLACEHOLDER - serum vs plasma not stated in source)",
+          "specimen_curie": "UBERON:0000178",
+          "container_additive": "PLACEHOLDER",
+          "minimum_volume": "PLACEHOLDER",
+          "handling": "PLACEHOLDER - centrifugation and separation requirements",
+          "stability": "PLACEHOLDER - time and temperature limits before assay"
+        },
+        "subject_preconditions": [
+          {
+            "condition": "time of chest-pain onset recorded",
+            "required": true,
+            "rationale": "diagnostic sensitivity depends on time since onset; a value within 3 h of onset is interpreted differently"
+          }
+        ],
+        "sampling_schedule": {
+          "anchor": "hospital admission",
+          "serial_required": true,
+          "timepoints": [
+            {
+              "label": "admission",
+              "offset": 0,
+              "unit": "hours"
+            },
+            {
+              "label": "3h",
+              "offset": 3,
+              "unit": "hours"
+            },
+            {
+              "label": "6h",
+              "offset": 6,
+              "unit": "hours"
+            }
+          ],
+          "rationale": "a single admission value cannot distinguish acute release from chronic elevation; the rise or fall across serial samples is part of the finding"
+        },
+        "analytical_performance": {
+          "limit_of_blank": {
+            "value": null,
+            "unit": "ng/mL",
+            "reported": false
+          },
+          "limit_of_detection": {
+            "value": 0.006,
+            "unit": "ng/mL"
+          },
+          "limit_of_quantitation": {
+            "value": 0.03,
+            "unit": "ng/mL",
+            "basis": "concentration at 10% CV"
+          },
+          "upper_limit_of_quantitation": {
+            "value": 50,
+            "unit": "ng/mL"
+          },
+          "measuring_range": {
+            "low": 0.006,
+            "high": 50,
+            "unit": "ng/mL"
+          },
+          "imprecision": [
+            {
+              "concentration": 0.03,
+              "unit": "ng/mL",
+              "cv_pct": 10
+            }
+          ],
+          "linearity": "PLACEHOLDER - not stated in the available sources",
+          "interferences": [
+            "proteolytic degradation of the cTnI molecule",
+            "phosphorylation of cTnI",
+            "complexing of cTnI with cardiac troponin C",
+            "heparin",
+            "heterophile antibodies and human anti-mouse antibodies",
+            "cTnI-specific autoantibodies",
+            "PLACEHOLDER - interference thresholds and acceptance limits, from the manufacturer's instructions for use"
+          ]
+        },
+        "reference_limits": [
+          {
+            "type": "99th percentile",
+            "direction": "upper",
+            "value": 0.04,
+            "unit": "ng/mL",
+            "strata": [],
+            "population": {
+              "source": "Gutenberg Heart Study",
+              "n": 5000
+            }
+          }
+        ],
+        "derived_quantities": [
+          {
+            "name": "relative change",
+            "formula": "(later - earlier) / earlier * 100",
+            "unit": "%",
+            "inputs": [
+              "serial measurements within the delta window"
+            ]
+          }
+        ],
+        "interpretation_rules": [
+          {
+            "rule_id": "R1",
+            "outcome": "acute myocardial injury",
+            "expression": "value > reference limit AND |relative change| >= threshold within window",
+            "components": [
+              {
+                "type": "threshold",
+                "param": "applied_reference_limit_type",
+                "value": "99th percentile",
+                "tunable": true
+              },
+              {
+                "type": "delta",
+                "param": "relative_change_threshold_pct",
+                "value": 30,
+                "unit": "%",
+                "tunable": true
+              },
+              {
+                "type": "window",
+                "param": "relative_change_window_hours",
+                "value": 6,
+                "unit": "hours",
+                "tunable": true
+              },
+              {
+                "type": "direction",
+                "param": "relative_change_direction",
+                "value": "rise or fall",
+                "tunable": true
+              }
+            ]
+          }
+        ],
+        "repeat_criteria": [
+          {
+            "trigger": "admission value between LoD and reference limit",
+            "action": "repeat at 3 and 6 hours",
+            "rationale": "19.7% of such patients crossed the limit within 6 h"
+          }
+        ],
+        "reporting_convention": {
+          "unit": "ng/mL",
+          "decimal_places": 3,
+          "censoring": "values below the limit of quantitation are reported as '<LLOQ' and excluded from numeric summaries"
+        }
+      }
+    }
+  ],
+  "description_domain": {
+    "keywords": [
+      "cardiac troponin I",
+      "immunoassay",
+      "myocardial injury",
+      "serial sampling",
+      "delta criterion",
+      "assay specification"
+    ],
+    "xref": [
+      {
+        "namespace": "uniprot",
+        "name": "UniProtKB",
+        "ids": [
+          "P19429"
+        ],
+        "access_time": "2026-10-05T12:00:00.000000"
+      },
+      {
+        "namespace": "loinc",
+        "name": "LOINC",
+        "ids": [
+          "10839-9"
+        ],
+        "access_time": "2026-10-05T12:00:00.000000"
+      },
+      {
+        "namespace": "pubmed",
+        "name": "PubMed",
+        "ids": [
+          "19710485"
+        ],
+        "access_time": "2026-10-05T12:00:00.000000"
+      }
+    ],
+    "platform": [
+      "ADVIA Centaur XP"
+    ],
+    "pipeline_steps": [
+      {
+        "step_number": 1,
+        "name": "collect_specimen",
+        "description": "Collect the specimen described in specimen_requirements at each timepoint in sampling_schedule, after confirming subject_preconditions.",
+        "version": "1.0.0",
+        "prerequisite": [],
+        "input_list": [
+          {
+            "uri": "PLACEHOLDER",
+            "filename": "worklist.csv"
+          }
+        ],
+        "output_list": [
+          {
+            "uri": "PLACEHOLDER",
+            "filename": "specimens.csv"
+          }
+        ]
+      },
+      {
+        "step_number": 2,
+        "name": "measure",
+        "description": "Measure the analyte on the assay in assay_protocol_extension.assay. Flag results outside the measuring range per reporting_convention.",
+        "version": "1.0.0",
+        "prerequisite": [],
+        "input_list": [
+          {
+            "uri": "PLACEHOLDER",
+            "filename": "specimens.csv"
+          }
+        ],
+        "output_list": [
+          {
+            "uri": "PLACEHOLDER",
+            "filename": "concentrations.csv"
+          }
+        ]
+      },
+      {
+        "step_number": 3,
+        "name": "derive",
+        "description": "Compute the quantities in derived_quantities from the serial values.",
+        "version": "1.0.0",
+        "prerequisite": [],
+        "input_list": [
+          {
+            "uri": "PLACEHOLDER",
+            "filename": "concentrations.csv"
+          }
+        ],
+        "output_list": [
+          {
+            "uri": "PLACEHOLDER",
+            "filename": "derived.csv"
+          }
+        ]
+      },
+      {
+        "step_number": 4,
+        "name": "classify",
+        "description": "Apply interpretation_rules to the measured and derived values and emit the finding.",
+        "version": "1.0.0",
+        "prerequisite": [],
+        "input_list": [
+          {
+            "uri": "PLACEHOLDER",
+            "filename": "derived.csv"
+          }
+        ],
+        "output_list": [
+          {
+            "uri": "PLACEHOLDER",
+            "filename": "results.csv"
+          }
+        ]
+      }
+    ]
+  },
+  "execution_domain": {
+    "script": [
+      {
+        "uri": {
+          "uri": "PLACEHOLDER - URI of the assay SOP or analyser protocol",
+          "filename": "assay_sop.pdf"
+        }
+      }
+    ],
+    "script_driver": "manual",
+    "software_prerequisites": [
+      {
+        "name": "ADVIA Centaur XP",
+        "version": "PLACEHOLDER - analyser software version",
+        "uri": {
+          "uri": "PLACEHOLDER - manufacturer documentation URI"
+        }
+      }
+    ],
+    "external_data_endpoints": [],
+    "environment_variables": {}
+  },
+  "parametric_domain": [
+    {
+      "param": "applied_reference_limit_type",
+      "value": "99th percentile",
+      "unit": "",
+      "rule": "R1"
+    },
+    {
+      "param": "relative_change_threshold_pct",
+      "value": "30",
+      "unit": "%",
+      "rule": "R1"
+    },
+    {
+      "param": "relative_change_window_hours",
+      "value": "6",
+      "unit": "hours",
+      "rule": "R1"
+    },
+    {
+      "param": "relative_change_direction",
+      "value": "rise or fall",
+      "unit": "",
+      "rule": "R1"
+    },
+    {
+      "param": "below_lloq_handling",
+      "value": "values below the limit of quantitation are reported as '<LLOQ' and excluded from numeric summaries",
+      "unit": "",
+      "rule": "reporting"
+    }
+  ],
+  "io_domain": {
+    "input_subdomain": [
+      {
+        "mediatype": "application/pdf",
+        "uri": {
+          "uri": "PLACEHOLDER - Siemens instructions for use, ADVIA Centaur TnI-Ultra",
+          "filename": "tniultra_instructions_for_use.pdf",
+          "access_time": "2026-10-05T12:00:00.000000"
+        }
+      },
+      {
+        "mediatype": "application/pdf",
+        "uri": {
+          "uri": "https://doi.org/10.1056/NEJMoa0903515",
+          "filename": "keller_2009_supplementary_appendix.pdf",
+          "access_time": "2026-10-05T12:00:00.000000"
+        }
+      },
+      {
+        "mediatype": "application/pdf",
+        "uri": {
+          "uri": "PLACEHOLDER - Gutenberg Heart Study reference-limit derivation (n=5000)",
+          "filename": "reference_limit_derivation.pdf",
+          "access_time": "2026-10-05T12:00:00.000000"
+        }
+      },
+      {
+        "mediatype": "application/pdf",
+        "uri": {
+          "uri": "PLACEHOLDER - local laboratory method validation report",
+          "filename": "method_validation_report.pdf",
+          "access_time": "2026-10-05T12:00:00.000000"
+        }
+      }
+    ],
+    "output_subdomain": [
+      {
+        "mediatype": "application/xml",
+        "uri": {
+          "uri": "PLACEHOLDER - define.xml fragment for LB and SUPPLB records made under this specification",
+          "filename": "define_fragment_tnni3.xml"
+        }
+      },
+      {
+        "mediatype": "application/json",
+        "uri": {
+          "uri": "PLACEHOLDER - record template naming the LB variables and SUPPLB qualifiers a conforming result must populate",
+          "filename": "lb_supplb_record_template.json"
+        }
+      }
+    ]
+  },
+  "error_domain": {
+    "empirical_error": {
+      "imprecision_at_decision_limit": "The 10% CV concentration (0.03 ng/mL) lies below the 0.04 ng/mL decision limit, so values near the limit carry about 10% analytical variability. A single marginal value is not definitive.",
+      "detection_floor": "Values below 0.006 ng/mL are not quantifiable and are left-censored.",
+      "physiological_confounders": "Concentrations rise with age and falling renal function independently of acute injury.",
+      "reference_population_transferability": "The limit derives from the named reference population; a different age or sex distribution shifts the false-positive rate."
+    },
+    "algorithmic_error": {
+      "assay_non_harmonization": "Cardiac troponin I is not standardized across manufacturers and standardization is considered unlikely to be achievable, because antibodies to different epitopes recognise different circulating forms of the molecule. Every limit here is specific to the assay named in assay_protocol_extension.assay. For comparison, the Dimension RxL cTnI assay in the same study has a 99th percentile of 0.07 ng/mL against this assay's 0.04 ng/mL, with 20% CV at its own 99th percentile.",
+      "delta_threshold_is_assay_specific": "The 30% threshold derives from this assay's imprecision, not from biology, and must be re-derived for any other assay.",
+      "unit_ambiguity_on_transfer": "Limits are in ng/mL. A consuming system assuming ng/L misreads every one by a factor of 1000.",
+      "scope_limit": "This object specifies how to measure and interpret, not whether the biomarker is valid for any purpose."
+    }
+  }
+}

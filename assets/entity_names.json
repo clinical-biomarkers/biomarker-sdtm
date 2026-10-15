@@ -1,0 +1,7 @@
+{
+  "//_note": "Accession -> entity name resolution cache.",
+  "//_note_2": "The BMKB submission record carries the accession, not the name, so BM.BMENTNM",
+  "//_note_3": "is resolved from this cache (populated from UniProt / CO / GlyTouCan per bmkb-model.md §7).",
+  "//_note_4": "Key = the accession exactly as it appears in assessed_biomarker_entity_id.",
+  "UPKB:P19429": "Troponin I, cardiac muscle"
+}

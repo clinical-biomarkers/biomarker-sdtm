@@ -1,0 +1,71 @@
+{
+  "//_note": "==============================================================================",
+  "//_note_1": "BMKB RECORD TEMPLATE — provider-side submission schema (part of the 3-part",
+  "//_note_2": "record set: tBCO + rBCO + BMKB). Do NOT add BiomarkerKB-assigned fields",
+  "//_note_3": "(biomarker_id, *_md5, biomarker_id_new, source_list) — BMKB assigns those.",
+  "//_note_4": "Reference: bmkb-model.md v2.0.0",
+  "//_note_5": "==============================================================================",
+
+  "//_condition_help": "id = CURIE from DOID/MONDO/SNOMED/NCIt; name lowercase; resource = ontology.",
+  "condition": {
+    "id": "DOID:5844",
+    "name": "acute myocardial infarction",
+    "resource": "Disease Ontology"
+  },
+
+  "//_role_help": "Valid: diagnostic, prognostic, predictive, monitoring, safety, susceptibility/risk, pharmacodynamic/response.",
+  "best_biomarker_role": [
+    { "role": "monitoring" }
+  ],
+
+  "//_component_help": "Five fields only. assessed_entity_type is lowercase from the fixed set. biomarker = '{change} {aspect} of {entity_type} {symbol}/{id}'.",
+  "biomarker_component": [
+    {
+      "component_index": "1",
+      "entity_index": "1",
+      "assessed_biomarker_entity_id": "UPKB:P19429",
+      "assessed_entity_type": "protein",
+      "biomarker": "Increased level of protein TNNI3/UPKB:P19429"
+    }
+  ],
+
+  "//_entity_normal_ranges_help": "Optional. Age/sex-stratified population norms. Informative only.",
+  "entity_normal_ranges": [
+    {
+      "entity_name": "Troponin I, cardiac muscle",
+      "entity_id": "UPKB:P19429",
+      "source": [
+        {
+          "source_name": "PLACEHOLDER",
+          "lab_term": "PLACEHOLDER",
+          "ranges": [
+            {
+              "age_grp": "PLACEHOLDER",
+              "sex": "PLACEHOLDER",
+              "n_val": 0,
+              "units": "ng/mL",
+              "mean_val": null,
+              "median_val": null,
+              "sd_val": null,
+              "min": null,
+              "max": null,
+              "q1": null,
+              "q3": null,
+              "iqr": null,
+              "lower_whisker": null,
+              "upper_whisker": null
+            }
+          ]
+        }
+      ]
+    }
+  ],
+
+  "//_provenance_help": "Who supplied the record. Single object, not a list.",
+  "provenance": {
+    "provider": "PLACEHOLDER - submitting organisation",
+    "author": "PLACEHOLDER - author of the record",
+    "date": "PLACEHOLDER - YYYY-MM-DD",
+    "description": "PLACEHOLDER - origin note"
+  }
+}

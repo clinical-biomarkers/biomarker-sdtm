@@ -1,0 +1,369 @@
+{
+  "//_note": "==============================================================================",
+  "//_note_1": "BM DOMAIN ROW TEMPLATE — 26 columns for the proposed SDTM Biomarker Context domain.",
+  "//_note_2": "One row per biomarker claim. One BM row covers many LB rows (same assay, same entity).",
+  "//_note_3": "BM carries NO subject data, NO values, NO dates — it is context only.",
+  "//_note_4": "Reference: sdtmig-guide.md §BM, examples/troponin_I/Troponin_I_SDTM.xlsx (BM sheet)",
+  "//_note_5": "==============================================================================",
+
+  "//_provenance_codes": {
+    "T": "tBCO — assay specification (fixed by the assay, identical for every record made under it)",
+    "R": "rBCO — run record (produced by this patient's run)",
+    "K": "BiomarkerKB — the biomarker's own description (from the BMKB record)",
+    "N": "New — proposed here; no CDISC variable and no external source",
+    "S": "Study / CRF / derived — protocol, case report form, or computed"
+  },
+
+  "//_documented_at": "sdtmig-guide.md lines 151-194, Troponin_I_SDTM.xlsx BM sheet",
+
+  "//_proposed_domain_note": "BM is NOT in SDTMIG v3.4. It is a PHUSE Omics working group proposal. Until CDISC standardises it, submission may use a custom domain prefix (X/Y/Z).",
+
+  "row": {
+
+    "//_field_notes_column_order": "Order matches the BM sheet in Troponin_I_SDTM.xlsx. Variable names are SDTM-compliant (8-char limit).",
+
+    "STUDYID": {
+      "value": "PLACEHOLDER",
+      "label": "Study Identifier",
+      "role": "Identifier",
+      "core": "Proposed",
+      "provenance": "S",
+      "type": "string",
+      "description": "Unique identifier for the study.",
+      "source": "Study protocol or CRF"
+    },
+
+    "DOMAIN": {
+      "value": "BM",
+      "label": "Domain Abbreviation",
+      "role": "Identifier",
+      "core": "Proposed",
+      "provenance": "S",
+      "type": "string",
+      "description": "Always 'BM'.",
+      "source": "Fixed"
+    },
+
+    "BMID": {
+      "value": "PLACEHOLDER",
+      "label": "Biomarker Context Identifier",
+      "role": "Identifier",
+      "core": "Proposed",
+      "provenance": "K",
+      "type": "string",
+      "description": "Identifier for this biomarker claim. What other records and documents cite. Typically derived from BiomarkerKB canonical ID.",
+      "source": "BiomarkerKB biomarker_canonical_id",
+      "example": "BM-001"
+    },
+
+    "BMVER": {
+      "value": "1.0",
+      "label": "Biomarker Context Version",
+      "role": "Identifier",
+      "core": "Proposed",
+      "provenance": "N",
+      "type": "string",
+      "description": "Version of the claim. Changing a rule, role or population increments this rather than overwriting what was previously asserted.",
+      "source": "Assigned by skill (increment on update)"
+    },
+
+    "BMENTNM": {
+      "value": "PLACEHOLDER",
+      "label": "Entity Name",
+      "role": "Topic",
+      "core": "Proposed",
+      "provenance": "K",
+      "type": "string",
+      "description": "The molecule or feature being used as a biomarker. From BMKB assessed_biomarker_entity.recommended_name, stripped of surrounding quotes.",
+      "source": "BiomarkerKB biomarker_component[].assessed_biomarker_entity.recommended_name",
+      "example": "Troponin I, cardiac muscle",
+      "mapping_note": "Strip surrounding quotes (e.g., \"'Troponin I, Cardiac Muscle'\" → 'Troponin I, cardiac muscle')"
+    },
+
+    "BMENTID": {
+      "value": "PLACEHOLDER",
+      "label": "Entity Identifier",
+      "role": "Synonym Qualifier",
+      "core": "Proposed",
+      "provenance": "K",
+      "type": "string",
+      "description": "Ontology CURIE for the entity: UniProtKB, HGNC, ChEBI.",
+      "source": "BiomarkerKB biomarker_component[].assessed_biomarker_entity_id",
+      "example": "UPKB:P19429"
+    },
+
+    "BMENTTP": {
+      "value": "protein",
+      "label": "Entity Type",
+      "role": "Grouping Qualifier",
+      "core": "Proposed",
+      "provenance": "K",
+      "type": "string",
+      "description": "Class of entity: protein, gene, metabolite, variant, clinical, pathway, phenotype.",
+      "source": "BiomarkerKB biomarker_component[].assessed_entity_type (uppercased)",
+      "example": "PROTEIN"
+    },
+
+    "BMCVTERM": {
+      "value": "PLACEHOLDER",
+      "label": "Controlled Vocabulary Term",
+      "role": "Synonym Qualifier",
+      "core": "Proposed",
+      "provenance": "K",
+      "type": "string",
+      "description": "The biomarker as a controlled-vocabulary statement: {Change} {Aspect} of {EntityType} {EntityID}. This is NOT the same as LBTESTCD.",
+      "source": "BiomarkerKB biomarker_component[].biomarker",
+      "example": "Increased level of protein TNNI3/UPKB:P19429",
+      "pattern": "{Increased|Decreased|Elevated|Reduced|Presence|Absence} {level|expression|activity|concentration|mutation} of {protein|gene|metabolite} {GeneSymbol}/{EntityID}"
+    },
+
+    "BMROLE": {
+      "value": "MONITORING",
+      "label": "BEST Biomarker Role",
+      "role": "Record Qualifier",
+      "core": "Proposed",
+      "provenance": "K",
+      "type": "string",
+      "description": "BEST biomarker role: DIAGNOSTIC, PROGNOSTIC, PREDICTIVE, MONITORING, SAFETY, SUSCEPTIBILITY/RISK, PHARMACODYNAMIC/RESPONSE. Uppercased from BMKB. Only interpretable alongside BMCOND.",
+      "source": "BiomarkerKB best_biomarker_role (uppercased)",
+      "valid_values": ["DIAGNOSTIC", "PROGNOSTIC", "PREDICTIVE", "MONITORING", "SAFETY", "SUSCEPTIBILITY/RISK", "PHARMACODYNAMIC/RESPONSE"]
+    },
+
+    "BMCOND": {
+      "value": "PLACEHOLDER",
+      "label": "Target Condition or Exposure",
+      "role": "Record Qualifier",
+      "core": "Proposed",
+      "provenance": "K",
+      "type": "string",
+      "description": "The disease or exposure the role is scoped to. Use the STUDY CONTEXT condition, not the BMKB example condition (which may differ).",
+      "source": "BiomarkerKB condition.recommended_name.name (verify against study context)",
+      "example": "Acute myocardial infarction"
+    },
+
+    "BMCONDID": {
+      "value": "PLACEHOLDER",
+      "label": "Condition Identifier",
+      "role": "Record Qualifier",
+      "core": "Proposed",
+      "provenance": "K",
+      "type": "string",
+      "description": "Ontology CURIE for the condition: DOID, MONDO.",
+      "source": "BiomarkerKB condition.id (verify against study context)",
+      "example": "DOID:5844"
+    },
+
+    "BMASSAY": {
+      "value": "PLACEHOLDER",
+      "label": "Assay Profile Reference",
+      "role": "Record Qualifier",
+      "core": "Proposed",
+      "provenance": "T",
+      "type": "string",
+      "description": "The assay the claim depends on. Decision thresholds are assay-specific and do not transfer.",
+      "source": "tBCO extension_domain.assay_protocol_extension.assay.assay_name",
+      "example": "TnI-Ultra"
+    },
+
+    "BMNAM": {
+      "value": "PLACEHOLDER",
+      "label": "Assay Manufacturer",
+      "role": "Record Qualifier",
+      "core": "Proposed",
+      "provenance": "T",
+      "type": "string",
+      "description": "Vendor of the assay named in BMASSAY.",
+      "source": "tBCO extension_domain.assay_protocol_extension.assay.manufacturer",
+      "example": "Siemens Healthcare Diagnostics"
+    },
+
+    "BMPLAT": {
+      "value": "PLACEHOLDER",
+      "label": "Assay Platform",
+      "role": "Record Qualifier",
+      "core": "Proposed",
+      "provenance": "T",
+      "type": "string",
+      "description": "Instrument the assay runs on.",
+      "source": "tBCO extension_domain.assay_protocol_extension.assay.platform",
+      "example": "ADVIA Centaur XP"
+    },
+
+    "BMMETHOD": {
+      "value": "IMMUNOASSAY",
+      "label": "Measurement Method",
+      "role": "Record Qualifier",
+      "core": "Proposed",
+      "provenance": "T",
+      "type": "string",
+      "description": "The analytical technique, not the product. Putting a vendor assay name here is a common error.",
+      "source": "tBCO extension_domain.assay_protocol_extension.assay.method",
+      "example": "IMMUNOASSAY"
+    },
+
+    "BMSPEC": {
+      "value": "PLACEHOLDER",
+      "label": "Specimen Type",
+      "role": "Record Qualifier",
+      "core": "Proposed",
+      "provenance": "T",
+      "type": "string",
+      "description": "The matrix the biomarker is measured in: SERUM, PLASMA, WHOLE BLOOD, URINE. Constant for the biomarker-assay pair; decision thresholds do not transfer between matrices.",
+      "source": "tBCO extension_domain.assay_protocol_extension.specimen_requirements.specimen_type",
+      "example": "SERUM"
+    },
+
+    "BMSRCDOM": {
+      "value": "LB",
+      "label": "Source Domain",
+      "role": "Identifier",
+      "core": "Proposed",
+      "provenance": "N",
+      "type": "string",
+      "description": "The SDTM domain holding the measurements this claim describes.",
+      "source": "Assigned (always LB for biomarker lab results)"
+    },
+
+    "BMSRCVAR": {
+      "value": "LBTESTCD",
+      "label": "Source Identifying Variable",
+      "role": "Identifier",
+      "core": "Proposed",
+      "provenance": "N",
+      "type": "string",
+      "description": "The variable in that domain used to select the relevant records.",
+      "source": "Assigned",
+      "example": "LBTESTCD"
+    },
+
+    "BMSRCVAL": {
+      "value": "PLACEHOLDER",
+      "label": "Source Identifying Value",
+      "role": "Identifier",
+      "core": "Proposed",
+      "provenance": "N",
+      "type": "string",
+      "description": "The value of BMSRCVAR that selects the relevant LB records. Must match the actual LBTESTCD in the LB domain.",
+      "source": "Assigned — must match LB.LBTESTCD",
+      "example": "TNNI3"
+    },
+
+    "BMSRCVR2": {
+      "value": "ASSAYNAM",
+      "label": "Source Identifying Variable 2",
+      "role": "Identifier",
+      "core": "Proposed",
+      "provenance": "N",
+      "type": "string",
+      "description": "A second variable used to narrow the selection. Needed when BMSRCVAL alone selects records from more than one assay.",
+      "source": "Assigned",
+      "example": "ASSAYNAM"
+    },
+
+    "BMSRCVL2": {
+      "value": "PLACEHOLDER",
+      "label": "Source Identifying Value 2",
+      "role": "Identifier",
+      "core": "Proposed",
+      "provenance": "N",
+      "type": "string",
+      "description": "The value of BMSRCVR2 that narrows the selection to a specific assay.",
+      "source": "Assigned — must match SUPPLB QVAL where QNAM=ASSAYNAM",
+      "example": "TnI-Ultra"
+    },
+
+    "BMBCOID": {
+      "value": "PLACEHOLDER",
+      "label": "BioCompute Object Identifier",
+      "role": "Record Qualifier",
+      "core": "Proposed",
+      "provenance": "T",
+      "type": "string",
+      "description": "Identifier of the tBCO (IEEE 2791-2020) holding the decision rule and assay specification. Authoritative; BMRULE is only its human-readable rendering.",
+      "source": "tBCO object_id",
+      "example": "https://biocomputeobject.org/PLACEHOLDER_Troponin_I_tBCO/1.0.0"
+    },
+
+    "BMRULE": {
+      "value": "PLACEHOLDER",
+      "label": "Interpretation or Decision Rule (text)",
+      "role": "Record Qualifier",
+      "core": "Proposed",
+      "provenance": "T",
+      "type": "string",
+      "description": "Human-readable rendering of the rule identified by BMBCOID. For reading, not for execution.",
+      "source": "tBCO extension_domain.assay_protocol_extension.interpretation_rules[]",
+      "example": "Value > 0.04 ng/mL AND rise or fall >= 30% within 6 h"
+    },
+
+    "BMEVID": {
+      "value": "PLACEHOLDER",
+      "label": "Evidence Reference",
+      "role": "Record Qualifier",
+      "core": "Proposed",
+      "provenance": "K",
+      "type": "string",
+      "description": "Citation supporting the claim: PMID, DOI, internal report. Evidence only; who asserted it is BMASSRT.",
+      "source": "BiomarkerKB evidence_source[].id (first significant citation)",
+      "example": "PMID:19710485"
+    },
+
+    "BMASSRT": {
+      "value": "PLACEHOLDER",
+      "label": "Asserting Party",
+      "role": "Record Qualifier",
+      "core": "Proposed",
+      "provenance": "N",
+      "type": "string",
+      "description": "Who asserted this biomarker context: sponsor, committee, regulator or consortium.",
+      "source": "Study metadata",
+      "example": "Sponsor Biomarker Review Board"
+    },
+
+    "BMASSDTC": {
+      "value": "PLACEHOLDER",
+      "label": "Assertion Date",
+      "role": "Timing",
+      "core": "Proposed",
+      "provenance": "N",
+      "type": "string",
+      "description": "When the claim at this BMVER was asserted, ISO 8601 date.",
+      "source": "Study metadata (date of biomarker review board decision)",
+      "example": "2026-09-01"
+    }
+  },
+
+  "//_provenance_grouped": {
+    "T_tBCO_fields": ["BMASSAY", "BMNAM", "BMPLAT", "BMMETHOD", "BMSPEC", "BMBCOID", "BMRULE"],
+    "K_BiomarkerKB_fields": ["BMID", "BMENTNM", "BMENTID", "BMENTTP", "BMCVTERM", "BMROLE", "BMCOND", "BMCONDID", "BMEVID"],
+    "N_new_fields": ["BMVER", "BMSRCDOM", "BMSRCVAR", "BMSRCVAL", "BMSRCVR2", "BMSRCVL2", "BMASSRT", "BMASSDTC"],
+    "S_study_fields": ["STUDYID", "DOMAIN"]
+  },
+
+  "//_mapping_to_component": {
+    "tBCO_paths": {
+      "BMASSAY": "extension_domain[].assay_protocol_extension.assay.assay_name",
+      "BMNAM": "extension_domain[].assay_protocol_extension.assay.manufacturer",
+      "BMPLAT": "extension_domain[].assay_protocol_extension.assay.platform",
+      "BMMETHOD": "extension_domain[].assay_protocol_extension.assay.method",
+      "BMSPEC": "extension_domain[].assay_protocol_extension.specimen_requirements.specimen_type",
+      "BMBCOID": "object_id",
+      "BMRULE": "extension_domain[].assay_protocol_extension.interpretation_rules[].expression (composed with reference_limits)"
+    },
+    "BMKB_paths": {
+      "BMID": "biomarker_canonical_id",
+      "BMENTNM": "biomarker_component[].assessed_biomarker_entity.recommended_name",
+      "BMENTID": "biomarker_component[].assessed_biomarker_entity_id",
+      "BMENTTP": "biomarker_component[].assessed_entity_type",
+      "BMCVTERM": "biomarker_component[].biomarker",
+      "BMROLE": "best_biomarker_role (uppercased)",
+      "BMCOND": "condition.recommended_name.name (study context, not BMKB example)",
+      "BMCONDID": "condition.id (study context, not BMKB example)",
+      "BMEVID": "evidence_source[].id (first significant citation)"
+    }
+  },
+
+  "//_fill_order": "1. K fields from BMKB record → 2. T fields from tBCO → 3. N fields assigned by skill → 4. S fields from study context",
+
+  "//_condition_mismatch_warning": "Set BMCOND/BMCONDID from the STUDY CONTEXT condition - never inherit one from a template or copy it from an example record."
+}

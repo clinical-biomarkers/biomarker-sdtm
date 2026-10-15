@@ -1,0 +1,10 @@
+# Generated test output (self-test / conversion artifacts)
+fixtures/**/_output/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# macOS
+.DS_Store
