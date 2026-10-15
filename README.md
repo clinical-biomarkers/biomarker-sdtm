@@ -110,7 +110,8 @@ _meaning_.
    /biomarker-sdtm help me draft a template BioCompute Object using the example troponin_I data available in the fixtures/ folder.
    ```
 
-> [!TIP] Claude also loads `SKILL.md` automatically when a request matches it. Mention BioCompute, a
+> [!TIP]
+> Claude also loads `SKILL.md` automatically when a request matches it. Mention BioCompute, a
 > tBCO or rBCO, BiomarkerKB, or SDTM and it will pick the skill up without the slash command.
 
 ### Install as a ChatGPT skill
@@ -179,21 +180,22 @@ python record_set_to_sdtm.py --self-test
 
 ## Disclaimer
 
-> [!IMPORTANT] This skill is a **research and development tool**. It drafts structured records from study
+> [!IMPORTANT]
+> This skill is a **research and development tool**. It drafts structured records from study
 > documents; it does not make decisions, and it does not submit anything to any regulator,
 > sponsor or data provider. Everything it produces is a **draft requiring expert review**
 > before it is used for anything.
-
-- **Not a regulatory submission.** The SDTM domains, BioCompute Objects and BiomarkerKB
-  records it produces are drafts. They are not validated for submission to any health
-  authority, and this skill does not provide regulatory advice. The sponsoring organisation
-  remains responsible for its own submissions and for verifying every value against the
-  source documents.
-- **Verify before relying on it.** Automated extraction from documents can be wrong, and a
-  `PLACEHOLDER` marks a value the documents did not supply; it is not a default. Treat every
-  generated field as a proposal to check, not a fact.
-- **Standards and schemas move.** The output formats follow the versions listed above.
-  Confirm them against the current published versions before submitting.
-- **No warranty or liability.** The skill is provided "as is", without warranty of any kind,
-  express or implied, including fitness for a particular purpose. The authors and their
-  institutions accept no liability for any loss or damage arising from its use.
+>
+> - **Not a regulatory submission.** The SDTM domains, BioCompute Objects and BiomarkerKB
+>  records it produces are drafts. They are not validated for submission to any health
+>  authority, and this skill does not provide regulatory advice. The sponsoring organisation
+>  remains responsible for its own submissions and for verifying every value against the
+>  source documents.
+>- **Verify before relying on it.** Automated extraction from documents can be wrong, and a
+>  `PLACEHOLDER` marks a value the documents did not supply; it is not a default. Treat every
+>  generated field as a proposal to check, not a fact.
+>- **Standards and schemas move.** The output formats follow the versions listed above.
+>  Confirm them against the current published versions before submitting.
+>- **No warranty or liability.** The skill is provided "as is", without warranty of any kind,
+>  express or implied, including fitness for a particular purpose. The authors and their
+>  institutions accept no liability for any loss or damage arising from its use.
