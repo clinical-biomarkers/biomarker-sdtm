@@ -27,20 +27,19 @@ from typing import Any, Optional
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from censor_state import derive_censor_state_from_sdtm  # noqa: E402
 from finalize_draft import finalize  # noqa: E402
+from biomarker_accessions import RESOURCES  # noqa: E402
 from record_set_to_sdtm import filled  # noqa: E402
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 SPEC_VERSION = "https://w3id.org/ieee/ieee-2791-schema/2791object.json"
 PH = "PLACEHOLDER"
 
-#: Condition CURIE prefix -> ontology name for BMKB condition.resource.
-RESOURCE_NAMES = {"DOID": "Disease Ontology", "MONDO": "MONDO", "NCIT": "NCI Thesaurus",
-                  "SNOMED": "SNOMED CT"}
 
 #: Not reconstructed, by design or because SDTM does not carry it.
 LOSSY = ["result values (LBORRES/LBSTRESN): never stored in a BCO",
          "demographics (DM): never stored in a BCO or BMKB record",
-         "BMEVID and BMASSRT: the BMKB submission record has no field for them",
+         "BMEVID, BMASSRT and BMASSDTC: the BMKB submission record has no field for them",
+         "BMKB provenance (provider, author, record date): not in SDTM",
          "instrument, lots, calibration and QC detail of each run",
          "IFU detail of the assay (handling, stability, interferences, imprecision)"]
 
@@ -191,13 +190,13 @@ def reconstruct_bmkb(bm: list[dict]) -> dict:
     roles = list(OrderedDict.fromkeys(r.get("BMROLE", "").lower() for r in bm if r.get("BMROLE")))
     return {
         "condition": {"id": _or_ph(cid), "name": _or_ph(b0.get("BMCOND", "").lower()),
-                      "resource": RESOURCE_NAMES.get(cid.split(":")[0].upper(), PH) if ":" in cid else PH},
+                      "resource": RESOURCES.get(cid.split(":")[0].upper(), (PH,))[0] if ":" in cid else PH},
         "best_biomarker_role": [{"role": r} for r in roles] or [{"role": PH}],
         "biomarker_component": [{"component_index": "1", "entity_index": "1",
                                  "assessed_biomarker_entity_id": _or_ph(b0.get("BMENTID")),
                                  "assessed_entity_type": _or_ph(b0.get("BMENTTP")),
                                  "biomarker": _or_ph(b0.get("BMCVTERM"))}],
-        "provenance": {"provider": PH, "author": PH, "date": _or_ph(b0.get("BMASSDTC")),
+        "provenance": {"provider": PH, "author": PH, "date": PH,
                        "description": f"Reconstructed from SDTM BM row(s) {', '.join(r.get('BMID', '') for r in bm)}"},
     }
 

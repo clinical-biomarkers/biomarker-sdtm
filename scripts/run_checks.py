@@ -41,6 +41,7 @@ SELF_TESTS = [
     "validate_bco.py",
     "record_set_to_sdtm.py",
     "sdtm_to_record_set.py",  # reads the TSVs record_set_to_sdtm.py writes
+    "grade_run.py",
 ]
 
 # Cells where the converter is right and the gold xlsx is not. Each entry is
@@ -122,7 +123,8 @@ def study_data_from_fixtures() -> dict:
                             "result": row["result"].strip(), "unit": row["unit"]})
     return {"study": {"studyid": study_id, "category": "CHEMISTRY"},
             "claim": {"bmid": "BM-001", "bmver": "1.0", "asserted_by": "Sponsor Biomarker Review Board",
-                      "assertion_date": "2026-09-01", "evidence": ["PMID:19710485"]},
+                      "assertion_date": "2026-09-01",
+                      "evidence": ["Keller T, Zeller T, Peetz D, et al. Sensitive troponin I assay in early diagnosis of acute myocardial infarction. N Engl J Med. 2009;361(9):868–877."]},
             "dm": dm, "results": results}
 
 

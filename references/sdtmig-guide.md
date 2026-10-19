@@ -201,8 +201,8 @@ Join: `BM --BMSRCDOM / BMSRCVAR / BMSRCVAL--> LB`; `BMBCOID` points at the tBCO 
 | BMSRCVR2 | Source Identifying Variable 2 | N | Narrows the selection when several assays share a test code, e.g. `ASSAYNAM` |
 | BMSRCVL2 | Source Identifying Value 2 | N | e.g. `TnI-Ultra` |
 | BMBCOID | BioCompute Object Identifier | T | tBCO `object_id`; authoritative for the rule |
-| BMRULE | Interpretation or Decision Rule | T | Human-readable rendering of the tBCO rule, with resolved values (`Value > 0.04 ng/mL AND rise or fall >= 30% within 6 h`) |
-| BMEVID | Evidence Reference | K | PMID / DOI. The BMKB submission record carries none, so pass it with `--evidence` from the study documents |
+| BMRULE | Interpretation or Decision Rule | T | Human-readable rendering of the tBCO rule, with resolved values (`Value > 0.04 ug/L AND rise or fall >= 30% within 6 h`) |
+| BMEVID | Evidence Reference | K | As the study documents give it: PMID / DOI when cited, otherwise the citation text (study data `claim.evidence`; the BMKB record carries none) |
 | BMASSRT | Asserting Party | N | Who asserted the claim (from the context-of-use document) |
 | BMASSDTC | Assertion Date | N | ISO 8601 date the claim was asserted |
 
@@ -226,9 +226,8 @@ analyte need two sets of rows.
 | BM.BMENTID / BMENTTP / BMCVTERM | BMKB `biomarker_component[].assessed_biomarker_entity_id` / `assessed_entity_type` / `biomarker` |
 | BM.BMROLE | BMKB `best_biomarker_role[].role` (lowercase) |
 | BM.BMCOND / BMCONDID | BMKB `condition.name` (lowercase) / `condition.id` |
-| BM.BMASSDTC | BMKB `provenance.date` |
 
 BCOs and BMKB records are public-facing and never hold individual results or demographics, so the
-reverse direction does not rebuild them. Also not rebuilt: BMEVID and BMASSRT (the BMKB record has
-no field for them), and run and IFU detail SDTM never carried. `sdtm_to_record_set.py` prints this
+reverse direction does not rebuild them. Also not rebuilt: BMEVID, BMASSRT and BMASSDTC (the BMKB record
+has no field for them; its `provenance.date` is the record date), and run and IFU detail SDTM never carried. `sdtm_to_record_set.py` prints this
 list; repeat it in the hand-over report.

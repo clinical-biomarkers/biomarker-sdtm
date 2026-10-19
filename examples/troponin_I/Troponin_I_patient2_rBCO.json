@@ -1,7 +1,7 @@
 {
   "object_id": "https://biocomputeobject.org/PLACEHOLDER_Troponin_I_BM-2026-01-002_R-2026-0316-01_rBCO/1.0.0",
   "spec_version": "https://w3id.org/ieee/ieee-2791-schema/2791object.json",
-  "etag": "e001e69b23688c9316ce60e62433cfcd8b5c96d2c7dd285c1b28563a05c23746",
+  "etag": "18c9647adb22f5025a244f3c704b55d691ff1a4a7589ceab2f4345897f1ef346",
   "provenance_domain": {
     "name": "Cardiac troponin I, subject BM-2026-01-002, run R-2026-0316-01",
     "version": "1.0",
@@ -69,7 +69,7 @@
           "conformance": "conforms"
         },
         "laboratory": {
-          "name": "PLACEHOLDER - performing laboratory",
+          "name": "BM-2026-01 Central Laboratory",
           "accreditation": "PLACEHOLDER - CLIA or ISO 15189 identifier"
         },
         "instrument": {

@@ -245,6 +245,7 @@ def validate_bco(obj: dict, filepath: str = "<unknown>") -> list[str]:
     # -----------------------------------------------------------------------
     _check_placeholders(obj, errors)
     _check_limits(obj, errors)
+    _check_rule_params(obj, errors)
 
     # -----------------------------------------------------------------------
     # 14) Schema validation (IEEE 2791 JSON Schema)
@@ -311,6 +312,21 @@ def _check_limits(obj: dict, errors: list[str]) -> None:
         for i, rl in enumerate(ape.get("reference_limits") or []):
             if isinstance(rl, dict) and (rl.get("value") is None or rl.get("value") == 0):
                 errors.append(f"UNFILLED LIMIT reference_limits[{i}].value is {rl.get('value')!r}")
+
+
+def _check_rule_params(obj: dict, errors: list[str]) -> None:
+    """Each interpretation-rule component param should appear by name in parametric_domain."""
+    params = {p.get("param") for p in obj.get("parametric_domain") or [] if isinstance(p, dict)}
+    for item in obj.get("extension_domain", []) or []:
+        ape = item.get("assay_protocol_extension") if isinstance(item, dict) else None
+        for r in (ape or {}).get("interpretation_rules") or []:
+            for c in r.get("components") or []:
+                name = c.get("param", "")
+                if name and "PLACEHOLDER" not in name and name not in params:
+                    errors.append(f"NOTE: rule {r.get('rule_id')} component param {name!r} is not in "
+                                  f"parametric_domain; use the same name in both")
+                if isinstance(c.get("value"), (int, float)) and not c.get("unit") and c.get("type") in ("delta", "window"):
+                    errors.append(f"NOTE: rule {r.get('rule_id')} component {name!r} has a number but no unit")
 
 
 def _is_warning(message: str) -> bool:

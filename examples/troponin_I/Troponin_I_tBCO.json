@@ -1,7 +1,7 @@
 {
   "object_id": "https://biocomputeobject.org/PLACEHOLDER_Troponin_I_tBCO/1.0.0",
   "spec_version": "https://w3id.org/ieee/ieee-2791-schema/2791object.json",
-  "etag": "81949a7de2eb33e780b0bb48d3a1216f62171ba4f38d345ce5f9841a6bbabd9d",
+  "etag": "fdc1417c3fbf1034ea31a836547daee7ae6df6beb4af371fbf368bcd4eef5039",
   "provenance_domain": {
     "name": "Assay standard for the cardiac troponin I assay (TnI-Ultra, ADVIA Centaur XP)",
     "version": "1.0.0",
@@ -121,31 +121,31 @@
         "analytical_performance": {
           "limit_of_blank": {
             "value": null,
-            "unit": "ng/mL",
+            "unit": "ug/L",
             "reported": false
           },
           "limit_of_detection": {
             "value": 0.006,
-            "unit": "ng/mL"
+            "unit": "ug/L"
           },
           "limit_of_quantitation": {
             "value": 0.03,
-            "unit": "ng/mL",
+            "unit": "ug/L",
             "basis": "concentration at 10% CV"
           },
           "upper_limit_of_quantitation": {
             "value": 50,
-            "unit": "ng/mL"
+            "unit": "ug/L"
           },
           "measuring_range": {
             "low": 0.006,
             "high": 50,
-            "unit": "ng/mL"
+            "unit": "ug/L"
           },
           "imprecision": [
             {
               "concentration": 0.03,
-              "unit": "ng/mL",
+              "unit": "ug/L",
               "cv_pct": 10
             }
           ],
@@ -165,7 +165,7 @@
             "type": "99th percentile",
             "direction": "upper",
             "value": 0.04,
-            "unit": "ng/mL",
+            "unit": "ug/L",
             "strata": [],
             "population": {
               "source": "Gutenberg Heart Study",
@@ -217,14 +217,14 @@
               }
             ],
             "role": "diagnostic",
-            "display": "Value > 0.04 ng/mL AND rise or fall >= 30% within 6 h"
+            "display": "Value > 0.04 ug/L AND rise or fall >= 30% within 6 h"
           },
           {
             "rule_id": "R2",
             "role": "prognostic",
             "outcome": "adverse outcome (death, myocardial infarction or revascularisation) within 30 days",
             "expression": "admission value > reference limit",
-            "display": "Admission value > 0.04 ng/mL",
+            "display": "Admission value > 0.04 ug/L",
             "components": [
               {
                 "type": "threshold",
@@ -246,13 +246,14 @@
           {
             "trigger": "admission value between LoD and reference limit",
             "action": "repeat at 3 and 6 hours",
-            "rationale": "19.7% of such patients crossed the limit within 6 h"
+            "rationale": "PLACEHOLDER - not stated in the study documents"
           }
         ],
         "reporting_convention": {
-          "unit": "ng/mL",
+          "unit": "ug/L",
           "decimal_places": 3,
-          "censoring": "values below the limit of detection are reported as '<LoD' with no numeric result; values between the LoD and the LLOQ keep their numeric value and are flagged detected_below_lloq; values above the ULOQ are reported as '>ULOQ'"
+          "censoring": "values below the limit of detection are reported as '<LoD' with no numeric result; values between the LoD and the LLOQ keep their numeric value and are flagged detected_below_lloq; values above the ULOQ are reported as '>ULOQ'",
+          "note": "CDISC UNIT submission value ug/L; the laboratory reports the same unit as ng/mL."
         }
       }
     }
@@ -478,15 +479,15 @@
   },
   "error_domain": {
     "empirical_error": {
-      "imprecision_at_decision_limit": "The 10% CV concentration (0.03 ng/mL) lies below the 0.04 ng/mL decision limit, so values near the limit carry about 10% analytical variability. A single marginal value is not definitive.",
-      "detection_floor": "Values below 0.006 ng/mL are not quantifiable and are left-censored.",
+      "imprecision_at_decision_limit": "The 10% CV concentration (0.03 ug/L) lies below the 0.04 ug/L decision limit, so values near the limit carry about 10% analytical variability. A single marginal value is not definitive.",
+      "detection_floor": "Values below 0.006 ug/L are not quantifiable and are left-censored.",
       "physiological_confounders": "Concentrations rise with age and falling renal function independently of acute injury.",
       "reference_population_transferability": "The limit derives from the named reference population; a different age or sex distribution shifts the false-positive rate."
     },
     "algorithmic_error": {
       "assay_non_harmonization": "Cardiac troponin I is not standardized across manufacturers and standardization is considered unlikely to be achievable, because antibodies to different epitopes recognise different circulating forms of the molecule. Every limit here is specific to the assay named in assay_protocol_extension.assay. For comparison, the Dimension RxL cTnI assay in the same study has a 99th percentile of 0.07 ng/mL against this assay's 0.04 ng/mL, with 20% CV at its own 99th percentile.",
       "delta_threshold_is_assay_specific": "The 30% threshold derives from this assay's imprecision, not from biology, and must be re-derived for any other assay.",
-      "unit_ambiguity_on_transfer": "Limits are in ng/mL. A consuming system assuming ng/L misreads every one by a factor of 1000.",
+      "unit_ambiguity_on_transfer": "Limits are in ug/L (the CDISC submission value; the laboratory reports ng/mL, the same unit). A consuming system assuming ng/L misreads every one by a factor of 1000.",
       "scope_limit": "This object specifies how to measure and interpret, not whether the biomarker is valid for any purpose."
     }
   }

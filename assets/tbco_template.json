@@ -159,9 +159,10 @@
           ],
           "linearity": "PLACEHOLDER - Description or 'Not stated'",
           "interferences": [
-            "PLACEHOLDER - list known interferences (endogenous substances, drugs, haemolysis, etc.)",
-            "PLACEHOLDER - interference thresholds from IFU if available"
-          ]
+            "PLACEHOLDER - substances or conditions that DO interfere (endogenous substances, drugs, haemolysis, ...)",
+            "PLACEHOLDER - interference thresholds from the IFU if available"
+          ],
+          "//_interferences_help": "List only what interferes. Substances tested and found not to interfere do not belong here."
         },
         "reference_limits": [
           {
@@ -196,7 +197,8 @@
                 "type": "PLACEHOLDER - threshold | delta | window | direction",
                 "param": "PLACEHOLDER - parameter name (e.g., applied_reference_limit_type)",
                 "value": "PLACEHOLDER or numerical value",
-                "tunable": true
+                "tunable": true,
+                "unit": "PLACEHOLDER - unit of the value (e.g., %, hours); null if none"
               }
             ],
             "role": "PLACEHOLDER - the BEST role this rule supports (diagnostic, prognostic, ...)",
@@ -211,11 +213,11 @@
           }
         ],
         "reporting_convention": {
-          "unit": "PLACEHOLDER",
+          "unit": "PLACEHOLDER - CDISC UNIT submission value (python scripts/cdisc_ct.py check UNIT <unit>; e.g. ng/mL -> ug/L)",
           "decimal_places": null,
           "censoring": "PLACEHOLDER - e.g., values below the limit of detection are reported as '<LoD' with no numeric result; values between the LoD and the LLOQ keep their numeric value and are flagged detected_below_lloq; values above the ULOQ are reported as '>ULOQ'"
         },
-        "//_interpretation_rules_help": "One rule per claim. 'role' ties the rule to a BEST role in the BMKB record; 'display' becomes BM.BMRULE."
+        "//_interpretation_rules_help": "One rule per claim. 'role' ties the rule to a BEST role in the BMKB record; 'display' becomes BM.BMRULE. Give every numeric component its unit, and use each component 'param' name unchanged in parametric_domain."
       }
     }
   ],

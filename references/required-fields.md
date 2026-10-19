@@ -70,7 +70,8 @@ No demographics and no result values, ever.
 | `condition.id` / `name` / `resource` | skill, convert | ask (the condition comes from the context of use) |
 | `best_biomarker_role[]` (BEST, one per role) | skill, convert | ask |
 | `biomarker_component[]` (five fields) | skill | entity id: report if OLS has no entry; the statement must still be written |
-| `provenance` provider / author / date / description | skill | report (PLACEHOLDER passes with a warning) |
+| `provenance` provider / author | skill | ask (the submitting organisation and person; never the CoU's asserting party) |
+| `provenance` date / description | skill | the date the record is produced; a short origin note |
 | `entity_normal_ranges` | optional | omit |
 
 ## 5. Study data (`assets/study_data_template.json`)
@@ -80,7 +81,7 @@ No demographics and no result values, ever.
 | `dm[]` row for every subject with an rBCO | convert | ask |
 | `results[]` row for every rBCO measurement (`usubjid`, `specimen_id`, `result`) | convert | ask |
 | `results[].unit` equal to the tBCO unit | convert | convert units first, or ask |
-| `claim.evidence` (at least one id) | convert, BM.BMEVID | ask |
+| `claim.evidence` (at least one entry) | convert, BM.BMEVID | as the documents give it (PMID/DOI if cited, else the citation text); ask if none |
 | `claim.bmid`, `bmver`, `asserted_by`, `assertion_date` | BM | report |
 | `dm[]` AGE, AGEU, SEX, COUNTRY, RFSTDTC | SDTM Req / Exp | report |
 | `dm[]` RACE, ETHNIC, RFXSTDTC | SDTM Exp / Perm | report; RFXSTDTC only exists when a product is given |

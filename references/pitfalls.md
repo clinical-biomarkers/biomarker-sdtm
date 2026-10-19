@@ -47,15 +47,16 @@ source: project experience · SDTMIG v3.4 (standard domains) · Troponin_I_SDTM.
 ## 2. Units
 
 - Take the unit from tBCO `reporting_convention.unit` and use it in LBORRESU, LBSTRESU and in
-  the BMRULE text (`Value > 0.04 ng/mL`).
-- LBORRESU/LBSTRESU use the CDISC UNIT codelist. Mathematically equal units (`ng/mL` and `ug/L`)
-  map to the one CDISC submission value (SDTMIG LB assumption 7).
+  the BMRULE text (`Value > 0.04 ug/L`).
+- LBORRESU/LBSTRESU use the CDISC UNIT codelist. Mathematically equal units map to the one CDISC
+  submission value (SDTMIG LB assumption 7): `ng/mL` is written `ug/L` in both, and in the tBCO.
+  `python scripts/cdisc_ct.py check UNIT <unit>` gives the submission value.
 - Two assays that report the same analyte in different units are two tBCOs and two BM rows.
 
 ## 3. Assay non-harmonisation
 
 - Different assays for one analyte have different LoD/LLOQ/ULOQ and reference limits (TnI-Ultra
-  99th percentile 0.04 ng/mL; Abbott Architect STAT 0.026 ng/mL). Thresholds never transfer.
+  99th percentile 0.04 ug/L; Abbott Architect STAT 0.026 ug/L). Thresholds never transfer.
 - One tBCO per assay; one BM row per tBCO (and per role/condition). Never point one BM row at two
   assays.
 - If limits change between reagent lots, the tBCO carries the IFU values in force; say in the
@@ -69,7 +70,7 @@ The variable list and provenance letters are in `sdtmig-guide.md` §6, the only 
 - BMSRCDOM / BMSRCVAR / BMSRCVAL must select the LB records exactly: BMSRCVAL equals the
   LBTESTCD actually emitted.
 - BMMETHOD is the technique (`IMMUNOASSAY`); the product name goes in BMASSAY.
-- BMRULE renders the tBCO rule with resolved values (`Value > 0.04 ng/mL AND rise or fall >= 30%
+- BMRULE renders the tBCO rule with resolved values (`Value > 0.04 ug/L AND rise or fall >= 30%
   within 6 h`), not the template's generic expression.
 - BM is not in SDTMIG v3.4. Say in the hand-over that it may need to be submitted as a custom
   domain.

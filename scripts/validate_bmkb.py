@@ -23,7 +23,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from biomarker_accessions import ENTITY_TYPES, CONDITION_RESOURCES  # noqa: E402
+from biomarker_accessions import ENTITY_TYPES, CONDITION_RESOURCES, RESOURCES  # noqa: E402
 
 # The submission schema — exactly these top-level keys.
 REQUIRED_TOP = {"condition", "best_biomarker_role", "biomarker_component", "provenance"}
@@ -65,7 +65,13 @@ GOLD = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 
 def warnings(obj: dict) -> list[str]:
     """Unfilled values: allowed in a draft, listed in the hand-over report."""
-    return [f"UNFILLED PLACEHOLDER at {p}" for p in _placeholders(obj)]
+    out = [f"UNFILLED PLACEHOLDER at {p}" for p in _placeholders(obj)]
+    cond = obj.get("condition") or {}
+    prefix = str(cond.get("id", "")).split(":")[0]
+    want = RESOURCES.get(prefix, (None,))[0]
+    if want and cond.get("resource") and "PLACEHOLDER" not in cond["resource"] and cond["resource"] != want:
+        out.append(f"NOTE: condition.resource {cond['resource']!r}: use {want!r} for {prefix} ids")
+    return out
 
 
 def validate(obj: dict) -> list[str]:

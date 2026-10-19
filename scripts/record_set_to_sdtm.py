@@ -39,7 +39,7 @@ from typing import Any, Optional
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from censor_state import (censor_state_for_reported, fmt_number, make_sdtm_fields,  # noqa: E402
                           normalise_censor_state, parse_reported)
-from cdisc_ct import ct_notes  # noqa: E402
+from cdisc_ct import check as ct_check, ct_notes, synonym_of  # noqa: E402
 from finalize_draft import strip_comments  # noqa: E402
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -152,6 +152,14 @@ class Spec:
         return ""
 
 
+def ct_unit(unit: Any) -> Any:
+    """The CDISC UNIT submission value for *unit* ('ng/mL' -> 'ug/L'); unchanged if unknown."""
+    if not filled(unit) or ct_check("UNIT", str(unit)):
+        return unit
+    syn = synonym_of("UNIT", str(unit))
+    return syn["submission_value"] if syn else unit
+
+
 def preflight(spec: Spec, rbcos: list[dict], bmkb: dict, study: dict, evidence: list[str]) -> list[str]:
     """Every converter-critical gap, as one message each (empty list = go)."""
     gaps = []
@@ -238,17 +246,17 @@ def build_findings(spec: Spec, rbcos: list[dict], study: dict, dom: str = "LB") 
                                      f"{expected} against the tBCO limits, but the rBCO says {state}")
             stresc, stresn = make_sdtm_fields(state, number if op is None else None,
                                               spec.lod, spec.lloq, spec.uloq)
-            unit = res.get("unit") or spec.unit
-            if filled(spec.unit) and unit != spec.unit:
-                raise ValueError(f"{usubjid} specimen {m.get('specimen_id')}: unit {unit} differs from "
-                                 f"the tBCO unit {spec.unit}; convert before loading")
+            unit = ct_unit(res.get("unit") or spec.unit)    # CDISC synonyms are equal units
+            if filled(spec.unit) and unit != ct_unit(spec.unit):
+                raise ValueError(f"{usubjid} specimen {m.get('specimen_id')}: unit {res.get('unit')} differs "
+                                 f"from the tBCO unit {spec.unit}; convert before loading")
             rows.append({
                 "STUDYID": studyid, "DOMAIN": dom, "USUBJID": usubjid,
                 "--SEQ": n, "--GRPID": spec.grpid, "--REFID": _val(m.get("specimen_id")),
                 "--TESTCD": spec.testcd, "--TEST": str(spec.test)[:40], "--CAT": _val(category),
                 "--ORRES": reported or stresc, "--ORRESU": _val(unit),
                 "--LLOD": fmt_number(spec.lod), "--STRESC": stresc,
-                "--STRESN": "" if stresn is None else stresn, "--STRESU": _val(spec.unit),
+                "--STRESN": "" if stresn is None else stresn, "--STRESU": _val(ct_unit(spec.unit)),
                 "--STNRLO": "" if spec.ref_lo is None else spec.ref_lo,
                 "--STNRHI": "" if spec.ref_hi is None else spec.ref_hi,
                 "--NRIND": _nrind(state, stresn, spec), "--SPEC": _val(spec.specimen),
@@ -409,7 +417,7 @@ def write_all(datasets: dict[str, list[dict]], output_dir: str, dom: str = "LB")
 SELF_TEST_STUDY = {
     "study": {"studyid": "BM-2026-01", "category": "CHEMISTRY"},
     "claim": {"bmid": "BM-001", "bmver": "1.0", "asserted_by": "Sponsor Biomarker Review Board",
-              "assertion_date": "2026-09-01", "evidence": ["PMID:19710485"]},
+              "assertion_date": "2026-09-01", "evidence": ["Keller T, Zeller T, Peetz D, et al. Sensitive troponin I assay in early diagnosis of acute myocardial infarction. N Engl J Med. 2009;361(9):868–877."]},
     "dm": [
         {"usubjid": "BM-2026-01-001", "subjid": "001", "siteid": "01", "age": 67, "ageu": "YEARS",
          "sex": "M", "country": "DEU", "rfstdtc": "2026-03-15"},
@@ -476,7 +484,9 @@ def _self_test() -> int:
     check("SUPPLB rows", len(supp), 2 * 3 + 6)
     check("BM rows (one per role)", [r["BMROLE"] for r in bm], ["DIAGNOSTIC", "PROGNOSTIC"])
     check("BM ids", [r["BMID"] for r in bm], ["BM-001", "BM-002"])
-    check("BM[0].BMRULE", bm[0]["BMRULE"], "Value > 0.04 ng/mL AND rise or fall >= 30% within 6 h")
+    check("BM[0].BMRULE", bm[0]["BMRULE"], "Value > 0.04 ug/L AND rise or fall >= 30% within 6 h")
+    check("LB[0].LBORRESU (lab ng/mL -> CDISC ug/L)", r0["LBORRESU"], "ug/L")
+    check("LB[0].LBSTRESU", r0["LBSTRESU"], "ug/L")
     check("BM[0].BMSRCVAL", bm[0]["BMSRCVAL"], "TROPONI3")
     check("BM[0].BMENTNM", bm[0]["BMENTNM"], "Troponin I, cardiac muscle")
 

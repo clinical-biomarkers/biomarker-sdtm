@@ -8,6 +8,29 @@ Concise record of what changed and when. Newest first. Times are America/New_Yor
 
 ---
 
+## 2026-10-19 18:17 (supervisor/opus-5.5 high) Sonnet 5.5 test graded; S02-S06, T09, T10 applied (S01 withheld)
+
+A blind Sonnet 5.5 run (documents only) passed every validator and matched 364/366 SDTM cells
+before these changes. Its remaining differences all come from the decisions below.
+- **T09** Units are written as the CDISC submission value: `ug/L` in LBORRESU, LBSTRESU, the
+  tBCO and BMRULE. The converter accepts a lab's CDISC synonym (`ng/mL`) in the study data.
+  The gold tBCO and xlsx are updated.
+- **T10** BMEVID is the citation exactly as the documents give it (the full Keller 2009
+  citation in the gold). grade_run compares citations by first author, year and volume.
+- **S02** BMKB `provenance.date` is the record date, and provider/author are the submitting
+  organisation (asked for; never the CoU's asserting party). BMASSDTC lives in the study data
+  only, and the reverse direction no longer maps it to provenance.date. Gold BMKB date set to
+  2026-10-19.
+- **S03** Rule components carry `unit`. validate_bco adds a NOTE when a component param is
+  missing from parametric_domain, or when a delta or window value has no unit.
+- **S04** Template help: list only real interferences.
+- **S05** Gold rBCOs name the BM-2026-01 Central Laboratory (from the validation report). The
+  gold tBCO repeat rationale is PLACEHOLDER (no fixture states one).
+- **S06** One resource name per prefix (biomarker_accessions.RESOURCES). ols_lookup prints it,
+  validate_bmkb notes other spellings, and the reverse direction uses the same table.
+- New `scripts/grade_run.py` scores a run folder (files, validators, SDTM cells, controlled
+  record-set fields). A gold-built run scores 428/428. It is part of run_checks (10 self-tests).
+
 ## 2026-10-19 16:58 (supervisor/opus-5.5 high) T03, T04, T05, T07 applied; DOID corrected
 
 - **T03** New `scripts/ols_lookup.py` (OLS4 web API, standard library only, adapted from

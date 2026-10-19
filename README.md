@@ -180,6 +180,13 @@ python scripts/run_checks.py
 It runs every script's self-test plus a comparison against the Troponin I gold example, and exits
 non-zero if anything fails.
 
+To score an agent's test run (its output folder) against the gold, on SDTM cells and controlled
+record-set fields only:
+
+```bash
+python scripts/grade_run.py <run_folder>
+```
+
 ## Standard versions
 
 | Resource                           | Version         | Reference                                                       |

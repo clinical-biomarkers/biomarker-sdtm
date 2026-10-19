@@ -155,9 +155,13 @@ A single object naming who supplied the record — **not** a citation list.
 { "provider": "...", "author": "...", "date": "YYYY-MM-DD", "description": "..." }
 ```
 
-- `provider` — the submitting organisation / person
-- `author` — who authored the record
-- `date` — ISO date the record was produced
+- `provider` — the submitting organisation / person (ask the user)
+- `author` — who authored the record (ask the user)
+- `date` — ISO date the record was produced (not the claim's assertion date, which is BM.BMASSDTC
+  and lives only in the study data)
+
+Never copy the context of use's asserting party into provider or author: asserting a claim and
+submitting the record are different roles.
 - `description` — free-text note on the record's origin
 
 ## 10. Mapping to the BM domain

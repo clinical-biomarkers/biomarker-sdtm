@@ -2,21 +2,20 @@
   "//_note": "STUDY DATA — the one intermediate file record_set_to_sdtm.py needs besides the record set.",
   "//_note_2": "Holds what BCOs and BMKB records must never carry: demographics and result values. It is not a deliverable; keep it with the SDTM output, never with the BCOs.",
   "//_note_3": "Build it from the lab and demographics files. Their headers will not match SDTM: map each column yourself and list the mapping in the hand-over report.",
-
   "study": {
     "studyid": "PLACEHOLDER - protocol number",
     "category": "PLACEHOLDER - LBCAT, e.g. CHEMISTRY, HEMATOLOGY"
   },
-
   "//_claim_help": "The biomarker claim, from the context-of-use document. One BM row is written per BEST role in the BMKB record; ids after the first increment (BM-001, BM-002, ...).",
   "claim": {
     "bmid": "PLACEHOLDER - e.g. BM-001",
     "bmver": "PLACEHOLDER - e.g. 1.0",
     "asserted_by": "PLACEHOLDER - who asserted the claim",
     "assertion_date": "PLACEHOLDER - YYYY-MM-DD",
-    "evidence": ["PLACEHOLDER - e.g. PMID:19710485"]
+    "evidence": [
+      "PLACEHOLDER - as the documents give it: a PMID or DOI if they cite one, otherwise the citation text"
+    ]
   },
-
   "//_dm_help": "One entry per subject. Use CDISC CT: AGEU 'YEARS', SEX 'M'/'F'/'U', COUNTRY ISO 3166-1 alpha-3. Leave a field out (or null) when the documents lack it; never guess.",
   "dm": [
     {
@@ -33,14 +32,13 @@
       "rfxstdtc": null
     }
   ],
-
   "//_results_help": "One entry per rBCO measurement, matched on (usubjid, specimen_id). 'result' is exactly as the lab reported it, operator included ('<0.006'). The converter checks it against the rBCO censor_state.",
   "results": [
     {
       "usubjid": "PLACEHOLDER",
       "specimen_id": "PLACEHOLDER - matches measurements[].specimen_id",
       "result": "PLACEHOLDER - as reported, e.g. 0.021 or <0.006",
-      "unit": "PLACEHOLDER - must equal the tBCO reporting_convention.unit"
+      "unit": "PLACEHOLDER - as the lab reports it; must be the tBCO unit or a CDISC synonym of it (ng/mL for ug/L)"
     }
   ]
 }

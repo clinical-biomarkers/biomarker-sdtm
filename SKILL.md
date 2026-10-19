@@ -117,9 +117,12 @@ python scripts/cdisc_ct.py search "serum" --codelist SPECTYPE
 python scripts/cdisc_ct.py check UNIT ng/mL                       # reports the submission value
 ```
 
-If no CT term fits, keep a sponsor-defined value and report it. Give each
+Write the CDISC submission value even when the documents use a synonym (`ng/mL` is written
+`ug/L`; the converter accepts the lab's synonym in the study data). If no CT term fits, keep a
+sponsor-defined value and report it. Give each
 `interpretation_rules[]` entry the BEST `role` it supports and a `display` text with the values
-filled in; that text becomes BM.BMRULE.
+filled in; that text becomes BM.BMRULE. Give numeric rule components their unit, and use each
+component `param` name unchanged in `parametric_domain`.
 
 ### Step 3: Write one rBCO per subject per analytical run
 
@@ -172,6 +175,8 @@ emit the fields BiomarkerKB assigns (`biomarker_id`, `biomarker_canonical_id`, `
   unreachable, tell the user. Rules: `references/bmkb-model.md` §6–7. Write the `biomarker` statement as
   `{change} {aspect} of {entity_type} {symbol}/{CURIE}`, e.g.
   `Increased level of protein TNNI3/UPKB:P19429`.
+- **Provenance:** `provider` and `author` are whoever submits this record (ask the user), never the
+  context of use's asserting party; `date` is the day you produce the record.
 - **Name cache:** add `"<accession exactly as in assessed_biomarker_entity_id>": "<entity name>"` to
   `assets/entity_names.json`. Without it BM.BMENTNM comes out empty.
 
@@ -202,7 +207,8 @@ everything passes and every converter-critical field (see "Missing values") is f
    convert.
 2. **Build the study data.** Fill `assets/study_data_template.json` from the lab and demographics
    files: demographics, each result exactly as reported (matched on subject and specimen id), and
-   the claim (ids, asserting party, date, evidence citations from the context of use or protocol).
+   the claim (ids, asserting party, assertion date, evidence). Evidence is written as the documents
+   give it: a PMID or DOI if they cite one, otherwise the citation text.
 3. **Convert:**
 
    ```bash
@@ -248,7 +254,7 @@ Give the user, in this order:
 `examples/troponin_I/` holds human-validated outputs: `Troponin_I_tBCO.json`, one rBCO for each of
 two subjects, `Troponin_I_biomarkerKB.json` and `Troponin_I_SDTM.xlsx`. Its inputs are the simulated
 documents in `fixtures/troponin_I/`. Match its shape, not its values: TnI-Ultra on ADVIA Centaur XP,
-LoD 0.006 / LLOQ 0.03 / ULOQ 50 ng/mL, 99th percentile 0.04 ng/mL, acute myocardial infarction
+LoD 0.006 / LLOQ 0.03 / ULOQ 50 ug/L (the lab reports ng/mL), 99th percentile 0.04 ug/L, acute myocardial infarction
 (DOID:9408), roles diagnostic and prognostic.
 
 Never write into `examples/`. Put test output in a scratch directory or `fixtures/<name>/_output/`.

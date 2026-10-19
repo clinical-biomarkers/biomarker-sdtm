@@ -5,7 +5,7 @@
   "//_note_3": "(biomarker_id, *_md5, biomarker_id_new, source_list) — BMKB assigns those.",
   "//_note_4": "Reference: bmkb-model.md v2.0.0",
   "//_note_5": "==============================================================================",
-  "//_condition_help": "id = CURIE from DOID/MONDO/SNOMED/NCIt; name lowercase; resource = ontology.",
+  "//_condition_help": "id = CURIE from scripts/ols_lookup.py; name lowercase; resource = the name ols_lookup prints (e.g. 'Disease Ontology' for DOID).",
   "condition": {
     "id": "PLACEHOLDER - DOID/MONDO/NCIT CURIE from OLS",
     "name": "PLACEHOLDER - lowercase name",
@@ -58,11 +58,11 @@
       ]
     }
   ],
-  "//_provenance_help": "Who supplied the record. Single object, not a list.",
+  "//_provenance_help": "Who submits this record, not who asserted the claim: provider and author are the submitting organisation and person (ask the user; never copy the context-of-use 'asserted by'). date is the date this record was produced.",
   "provenance": {
-    "provider": "PLACEHOLDER - submitting organisation",
-    "author": "PLACEHOLDER - author of the record",
-    "date": "PLACEHOLDER - YYYY-MM-DD",
+    "provider": "PLACEHOLDER - submitting organisation (ask the user)",
+    "author": "PLACEHOLDER - author of this record (ask the user)",
+    "date": "PLACEHOLDER - YYYY-MM-DD this record was produced",
     "description": "PLACEHOLDER - origin note"
   }
 }

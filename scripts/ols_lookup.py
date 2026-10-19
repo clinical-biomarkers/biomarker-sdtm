@@ -85,6 +85,7 @@ def _candidate(doc: dict, ontology: str) -> dict:
         "ontology": doc.get("ontology_name", ontology),
         "obsolete": bool(doc.get("is_obsolete")),
         "iri": doc.get("iri", ""),
+        "resource": RESOURCES.get((curie_from_ols(raw) if raw else ":").split(":")[0], ("",))[0],
     }
 
 
@@ -245,7 +246,7 @@ def main() -> int:
     else:
         for c in results:
             flag = " (OBSOLETE)" if c["obsolete"] else ""
-            print(f"{c['curie']:<18} {c['label']}{flag}")
+            print(f"{c['curie']:<18} {c['label']}{flag}  [{c['resource']}]")
     return 0
 
 
