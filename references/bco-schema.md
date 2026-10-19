@@ -1,8 +1,8 @@
 ---
 doc: bco-schema
-version: 1.0.0
+version: 1.1.0
 status: current
-updated: 2026-10-15
+updated: 2026-10-19
 source: IEEE 2791-2021 schema
 ---
 
@@ -11,6 +11,11 @@ source: IEEE 2791-2021 schema
 > IEEE 2791-2020 — BioCompute Object schema.
 > Latest schema: `https://w3id.org/ieee/ieee-2791-schema/2791object.json` (JSON Schema draft-07).
 > Fetched 2026-10-13.
+
+## Contents
+
+Root Object · Provenance Domain · Usability Domain · Description Domain · Execution Domain ·
+Parametric Domain · Input/Output Domain · Error Domain · Extension Domain · Usage Notes for the Skill
 
 ## Root Object
 

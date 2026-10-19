@@ -55,7 +55,7 @@ BEST defines a biomarker description as a succinct summary with these elements:
 | Record Set | What it captures | Maps to |
 |-----------|-----------------|---------|
 | **Biomarker Identity** | Name, unique ID (UniProt/LOINC), acronym, source/matrix, type (molecular, histologic, radiographic, physiologic) | BMKB `assessed_biomarker_entity` / `assessed_biomarker_entity_id`; tBCO `target` |
-| **Biologic Plausibility** | Brief summary of the biological pathway linking the biomarker to the condition | BMKB `evidence_source[]`, BM.BMEVID |
+| **Biologic Plausibility** | Brief summary of the biological pathway linking the biomarker to the condition | Study documents (context of use, protocol) → BM.BMEVID via `--evidence`; the BMKB record carries no evidence |
 | **Measurement Method** | Platform, assay method, units of quantification | tBCO `assay`; BM.BMASSAY/BMNAM/BMPLAT/BMMETHOD |
 
 ### Application in the record set model
@@ -70,7 +70,7 @@ Condition           → BMKB `condition` + BM.BMCOND/BMCONDID
 Role                → BMKB `best_biomarker_role` + BM.BMROLE
 Measurement Method  → tBCO (assay, platform, method, specimen, LOINC)
 Performance         → tBCO (LoD, LLOQ, ULOQ, precision, reference limits)
-Evidence            → BMKB `evidence_source[]` + BM.BMEVID
+Evidence            → study documents → BM.BMEVID (via --evidence)
 Censoring           → rBCO `measurements[].censor_state`
 ```
 

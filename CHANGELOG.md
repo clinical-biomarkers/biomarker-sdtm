@@ -8,6 +8,98 @@ Concise record of what changed and when. Newest first. Times are America/New_Yor
 
 ---
 
+## 2026-10-19 12:10 (owner decisions applied: docs, templates)
+
+Applies the owner's decisions recorded in the tracker. Script changes happen separately on branch
+`claude/vigorous-chatterjee-b2bc63`.
+- **SKILL.md** rewritten, 409 → 241 lines (H08, target < 300). It now opens with a per-task routing
+  table (H01) and has a single missing-value policy (P04: strings PLACEHOLDER, numbers null;
+  LoD/LLOQ/ULOQ, unit, specimen, condition, role and evidence block conversion and are asked for).
+  A validation gate now runs before conversion, plus a hand-over report step (H03). The reverse
+  workflow now finalizes, validates and diffs (H03). The IEEE 2791 domains are listed once and
+  match the validator (P06). Commands run from the skill root (P11). Troubleshooting moved to
+  pitfalls.md §9. README/CHANGELOG are marked as human-facing.
+- **sdtmig-guide.md 2.0.0**:
+  - New domain index (§2) mapping measurement types and BEST-role context to SDTMIG domains,
+    with PDF page numbers, so the agent reads the index first and opens only the pages it needs
+    (P02).
+  - DM/LB/SUPPLB redistilled from the PDF: LBLLOD is standard, LBLLOQ/LBULOQ may be added
+    (assumption 5), LBLOBXFL is Expected, LBBLFL is Y or null, and §8.4.4 is flagged against
+    SUPPLB.LBLOD/LBLLOQ/LBULOQ.
+  - BM table copied from the gold xlsx Definitions sheet, the BM source of truth: BMID K, BMVER N,
+    BMASSRT N, BMASSDTC N (P02).
+  - Stale v1 paths fixed (P07, P08).
+- **pitfalls.md 2.0.0**: now the only home of the censor-zone table (P01; '>50' replaces '>0.30').
+  Wrong facts removed (P09: the assay_type field, "limits not in SDTM", BM joining DM by USUBJID,
+  TNNI3 as LBTESTCD).
+- **Templates**: tBCO numeric placeholders 0.0 → null (P04). rBCO censor_state is no longer
+  pre-filled and its help no longer lists `not_detected` (P01). The rBCO derivation path is now
+  `assay.assay_name`.
+- **Removed `assets/bm_row_template.json`**: no step used it, and it was a fifth, stale copy of
+  the BM table (P02).
+- Contents lists added to bmkb-model.md and bco-schema.md (H01). BMKB→BM mapping now points at
+  sdtmig-guide.md §6.
+- Still waiting on owner decisions: B02, B04, B08, H02, H04, H06, H07, H09, P05, P10.
+
+## 2026-10-19 11:07 (review) — full-repo code review, no code changed
+
+Staged review (low level: scripts, redundancy, prompts; high level: routing, missing data /
+ontology, SDTM domain selection, BEST roles, SKILL.md length). **Review only. No script,
+template or reference was edited.** All self-tests still pass, but several of them cannot fail
+(see R-tests). The issue IDs below match the workflow/issue-tracker artifact.
+
+**Bugs confirmed by running the code**
+- **B01** `record_set_to_sdtm._get_assay_info()` reads `assay.name`. The template and the gold
+  file use `assay.assay_name`, so `ASSAYNAM`=`Tniultra` and `LBGRPID`/`BMASSAY`=`TNNI3TNIULTRA`.
+  This is the root cause of adjudication TROPI-004/005, which are currently blamed on the model.
+- **B02** Censoring is not enforced in LB: a `detected_below_lloq` result keeps a numeric
+  `LBSTRESN`. `make_sdtm_fields()` is never called. The gold xlsx does the same, which
+  contradicts SKILL.md, sdtmig-guide.md and pitfalls.md. **Needs an owner decision.**
+- **B03** Only one subject per run. The forward converter takes a single rBCO and overwrites
+  the TSVs on each run; the reverse converter merges every LB row into subject 1.
+- **B04** `accession_resource_for()` raises for 6 of the 11 allowed entity types (DNA, RNA,
+  lipid, element, image, condition).
+- **B05** `validate_bco.py`: jsonschema never runs (bare-filename `$ref` is unresolvable and
+  the error is swallowed as a NOTE), and schema errors are only NOTEs anyway.
+- **B06** Numeric template placeholders are `0.0`, which no check can catch. With all limits
+  at 0, every result comes out `above_uloq`. A NaN value comes out `quantifiable`.
+- **B07** The reverse self-test always exits 0, and most of its checks are hard-coded `True`.
+- **B08** The reverse direction loses data: result values (the rBCO has no value field),
+  BMEVID, BMASSDTC and any secondary role.
+- **B09/B10** Troponin-specific values and invented defaults are hard-coded in the generic
+  converters (TNNI3, P19429, SERUM, ng/mL, CHEMISTRY, "Sponsor Biomarker Review Board").
+- **B11** `LBBLFL='N'` (SDTMIG allows only `Y` or null). `LBLOBXFL` and `VISITNUM` are missing.
+- **B12** The SUPPLB CENSOR `IDVARVAL` (measurement idvarval) can drift from the re-numbered
+  `LBSEQ`.
+- B13 to B19 are minor (NRIND boundary, `not_detected` state, PLACEHOLDER passes validate_bmkb,
+  `--check` ignores `//_` keys, header-less empty TSV, the `<` regex).
+
+**Redundancy:** `_derive_censor_state` is a copy of `censor_state.derive_censor_state_from_sdtm`
+(SKILL.md says the module is used, but it is not). `_make_grpid` and the censoring rebuild are
+duplicated. There is dead code (`_VAULT`, `PLACEHOLDER_RE`, unused imports and params, schema-v1
+fallbacks).
+
+**Prompts:** the censoring table appears 5 times, the BM provenance map 5 times (with
+conflicting letters for BMID, BMASSRT, BMASSDTC and BMEVID), and the accession table 3 times.
+The PLACEHOLDER policy contradicts itself (SKILL vs pitfalls §6). The number of rBCOs is
+stated three different ways (per patient / per run / per timepoint). The references still use
+stale schema-v1 paths. `bmkb_template.json` comes pre-filled with the gold AMI/troponin values.
+
+**High level:**
+- SKILL.md never routes the agent to `best-definitions.md`, `sdtmig-guide.md` or `pitfalls.md`
+  at the step where each is needed.
+- Step 5 needs `results.json` and `dm.json`, but nothing says how to build them.
+- Step 6 (validate) comes after the SDTM conversion.
+- There is no role-aware or entity-aware choice of SDTM domain. GF, IS, MB, MI, CP, PC and
+  others are never considered, nor are the context domains (EX, AE, CE, TV and others) that
+  some roles need.
+- BEST guidance contradicts itself on troponin (diagnostic vs monitoring). The fixture's
+  context-of-use says diagnostic.
+- SKILL.md is 409 lines, under Anthropic's 500-line limit, but about 40% is duplicated or
+  maintainer-facing. The reference files over 100 lines have no table of contents.
+
+---
+
 ## 2026-10-15 18:13 (supervisor)
 - **`_load_entity_names()` tidied.** It was the only loader that kept `//_` annotation keys,
   so it now strips them via `finalize_draft.strip_comments()` rather than a second private

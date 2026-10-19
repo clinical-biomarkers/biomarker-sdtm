@@ -1,216 +1,146 @@
 ---
 doc: pitfalls
-version: 1.0.0
+version: 2.0.0
 status: current
-updated: 2026-10-15
-source: project experience
+updated: 2026-10-19
+source: project experience · SDTMIG v3.4 (standard domains) · Troponin_I_SDTM.xlsx (BM)
 ---
 
-# Pitfalls & Edge Cases — biomarker-sdtm Skill
+# Pitfalls and troubleshooting
 
-> Common traps, gotchas, and edge cases the skill must avoid.
-> Cross-referenced against the record set (tBCO + rBCO + BMKB) and SDTM output.
+## Contents
 
----
-
-## 1. Censoring Confusion
-
-### Mixing LOD vs LLOQ (most common error)
-
-Four distinct censoring zones exist — the wrong zone produces an invalid SDTM record:
-
-| Zone | LBORRES (example) | LBSTRESN | Condition | Source |
-|------|-------------------|----------|-----------|--------|
-| `below_lod` | `<0.006` | null | value < LoD | tBCO `analytical_performance.limit_of_detection` |
-| `detected_below_lloq` | `<0.03` | null | LoD ≤ value < LLOQ | tBCO `analytical_performance.limit_of_quantitation` |
-| `quantifiable` | `0.08` | `0.08` | LLOQ ≤ value ≤ ULOQ | — |
-| `above_uloq` | `>0.30` | null | value > ULOQ | tBCO `analytical_performance.upper_limit_of_quantitation` |
-
-**Rule:** Always query the tBCO's `analytical_performance` object for LoD/LLOQ/ULOQ before assigning a censor state. Never hard-code thresholds.
-
-**Edge case:** If LoD = LLOQ (some assays), the `below_lod` and `detected_below_lloq` zones collapse — the skill should still use the correct named zone based on what the tBCO declares.
-
-### Censor state not in controlled vocabulary
-
-Valid values: `below_lod`, `detected_below_lloq`, `quantifiable`, `above_uloq`. Anything else (e.g. `BLQ`, `BLOQ`, `<LLOQ`) is non-standard, and `censor_state` rejects it rather than guessing at the zone.
-
-### Numeric value assigned to censored LBSTRESN
-
-When LBORRES is `<0.006`, LBSTRESN **must** be null. A common error is to assign 0 or 0.006. Only `quantifiable` values get a numeric LBSTRESN.
+1. Censoring (the one censor-zone table)
+2. Units
+3. Assay non-harmonisation
+4. BM domain
+5. BiomarkerKB record
+6. tBCO / rBCO
+7. SDTM output
+8. Round trip (SDTM → record set)
+9. Troubleshooting: error → cause → fix
 
 ---
 
-## 2. Unit Ambiguity
-
-### Same biomarker, different units
-
-Troponin I can be reported in ng/mL or μg/L (they are numerically identical for Troponin I, but not all assays). Other biomarkers may have assays that differ by a factor of 1000 (ng/mL vs μg/mL).
-
-**Rule:** Always capture the tBCO's `reporting_convention.unit` and propagate it to:
-- `LBORRESU`, `LBSTRESU` in LB
-- `BMRULE` text (e.g. "Value > 0.04 ng/mL")
-
-If two assays report the same biomarker in different units, they **must** be separate tBCOs (different `assay.name`) and separate BM domain rows.
-
-### Unit abbreviation inconsistency
-
-Same unit spelled differently: "ng/mL" vs "ng/ml" vs "ng per mL". SDTM requires a controlled unit (UCUM preferred, or CDISC codelist). The skill should normalise to the CDISC/UCUM standard form from the tBCO.
-
----
-
-## 3. Assay Non-Harmonisation
-
-### Different assays have different reference limits
-
-Two Troponin I assays (e.g. Siemens TnI-Ultra vs Abbott Architect STAT) have:
-- Different LoD, LLOQ, ULOQ
-- Different 99th percentile upper reference limits (0.04 ng/mL vs 0.026 ng/mL)
-- Possibly different units
-
-**Rule:** Every LB row that shares the same `LBTESTCD` but comes from a **different assay** needs a distinct BM row with a different `BMASSAY` value. The BM domain row is the **assay-level** context.
-
-### Mixing assays in the same BM row
-
-Never assign measurements from two different assay platforms to the same BM `BMBCOID`. Each tBCO → one BM row.
-
-### Plate-to-plate or lot-to-lot variation
-
-If reference limits drift across manufacturing lots, the tBCO should carry the **current/latest** IFU values. Historical lots are not represented in the record set model (the skill should note this limitation).
-
----
-
-## 4. BM Domain Pitfalls
-
-### BM vs LB: what goes where
-
-Domain rule: **BM is context — LB is data.** Never put:
-- Subject-level values in BM (they belong in LB)
-- Visit dates, subject IDs, or result flags in BM
-- LB metadata belongs in the BM domain (which provides the assay-level context for multiple LB rows)
-
-### BM proposed, not standard
-
-The BM domain is **not yet in SDTMIG**. It's a PHUSE Omics working group proposal. Until CDISC standardises it, submission may require a custom domain prefix (X/Y/Z). The skill should note this in its output.
-
-### Provenance code misassignment
-
-26 BM columns each have a provenance code (T/R/K/N/S). Common errors:
-- Assigning **K** (BiomarkerKB) to fields that should be **T** (tBCO) — e.g. `BMASSAY` (assay name) comes from the tBCO, not the KB
-- Assigning **N** (new) when the value is actually derived from another source
-- Leaving provenance off entirely
-
-Correct map (from `sdtmig-guide.md` §BM):
-
-| Prov. | Source | Example fields |
-|-------|--------|----------------|
-| **T** | tBCO | BMASSAY, BMNAM, BMPLAT, BMMETHOD, BMSPEC, BMBCOID, BMRULE |
-| **K** | BiomarkerKB | BMENTNM, BMENTID, BMENTTP, BMCVTERM, BMROLE, BMCOND, BMCONDID, BMEVID |
-| **N** | New/assigned | BMID, BMVER, BMSRCDOM, BMSRCVAR, BMSRCVAL, BMSRCVR2, BMSRCVL2 |
-| **S** | Study/CRF | BMASSRT, BMASSDTC |
-| **R** | rBCO/result | — |
-
-### BMSRCDOM/BMSRCVAR pointing at wrong LB record
-
-The source linkage must match exactly: e.g. `BMSRCDOM=LB, BMSRCVAR=LBTESTCD, BMSRCVAL=TNNI3`. If the LB test code in the data is `TROP` instead of `TNNI3`, the BM source pointer must match.
-
----
-
-## 5. BiomarkerKB Record Pitfalls
-
-### The condition must come from the study context
-
-Use the condition the study is actually about (e.g. acute myocardial infarction,
-`DOID:5844`) — never one inherited from a template or borrowed from the example record.
-Check it before it reaches the BM domain rather than copying it through.
-
-### Emitting fields BiomarkerKB assigns itself
-
-The record is **provider-side**. It must not contain the fields BiomarkerKB mints on receipt:
-`biomarker_id`, `biomarker_canonical_id`, `biomarker_id_md5`, `canon_id_md5`,
-`biomarker_id_new`, `source_list`. Emitting your own copies asserts identifiers only the
-receiving system is entitled to assign. `validate_bmkb.py` rejects them.
-
-### `biomarker_component` is exactly five fields
-
-`component_index`, `entity_index`, `assessed_biomarker_entity_id`, `assessed_entity_type`,
-`biomarker`. Earlier API responses also carried a nested `biomarker_component_new[]` and
-per-component `evidence_source`, `annotations`, `specimen`, `biomarker_orig` and
-`assessed_biomarker_entity_url`. **None of those are in the submission schema** — do not emit
-them. The entity *name* is not carried either: resolve it from the accession.
-
-### The record carries no evidence
-
-The submission record has **no** `evidence_source`. A biomarker assertion's evidence ids
-(e.g. `PMID:19710485`) come from the **study documents** — context-of-use and protocol
-citations — and are passed to the SDTM conversion with `--evidence`. Do not expect to read
-them back out of the BMKB record.
-
-### Normal ranges vs tBCO reference limits
-
-BMKB `entity_normal_ranges` are age/sex-stratified population norms. tBCO `analytical_performance.reference_limits` are assay-specific cutoffs. **These are different things.** Never populate tBCO reference limits from BMKB normal ranges.
-
-### BMCVTERM field
-
-The `biomarker` field in BMKB (mapped to BM.BMCVTERM) is a descriptive statement like "Increased level of protein TNNI3/UPKB:P19429". This is **not** the same as the biomarker test code (LBTESTCD). Keep them separate.
-
----
-
-## 6. tBCO / rBCO Pitfalls
-
-### PLACEHOLDER fields
-
-The Troponin I example has `PLACEHOLDER` in many fields (manufacturer, lot number, IFU version). These must be filled from the actual assay documentation. The skill should:
-1. Flag unpopulated PLACEHOLDER fields
-2. Prompt for the manufacturer's IFU or published literature values
-3. Never output PLACEHOLDER in a production BCO
-
-### Missing analytical_performance block
-
-Every tBCO must have an `analytical_performance` object with at minimum: LoD, LLOQ, ULOQ, and reference limits. Without these, censoring logic cannot execute.
-
-### rBCO derivation chain
-
-Each rBCO records `derived_from` (the tBCO `object_id`) and `usability_domain[].xref` (the SDTM dataset). If the tBCO is updated (new version), existing rBCOs still reference the old version — the skill should handle this via BCO versioning, not in-place edits.
-
----
-
-## 7. SDTM Output Pitfalls
-
-### LBTESTCD length limit
-
-`LBTESTCD` is limited to 8 characters (SDTM rule). Troponin I maps to `TNNI3` (5 chars) — safe. But if a biomarker test code exceeds 8 chars, it must be abbreviated and the full name recorded in `LBTEST`.
-
-### Controlled terminology
-
-`LBTESTCD`, `LBSPEC`, `LBMETHOD`, `LBSTRESU` are expected to use CDISC Controlled Terminology where available. Custom values (e.g. `SERUM` is fine, but `BLOOD_SERUM` may not be) should be flagged.
-
-### Multiple timepoints per subject
-
-A single subject may have multiple Troponin I measurements (t0, t3h, t6h). Each gets:
-- A separate rBCO (one per collection timepoint)
-- A separate LB row
-- The same BM row (BM is assay-level, not timepoint-level)
-
-### DM linkage
-
-Every LB/SUPPLB/BM record must join to DM via `STUDYID + USUBJID`. The skill must ensure DM is always included in the SDTM output.
-
----
-
-## 8. General / Workflow Pitfalls
-
-### Schema version drift
-
-The IEEE 2791 BCO schema may update. The skill's reference copy (`references/bco-schema.md`) must be periodically reconciled with the live version at `w3id.org/ieee/ieee-2791-schema/2791object.json`.
-
-### Assumption of STANDARD assay_type
-
-The Troponin I example uses `assay_type = "STANDARD"`. If a different type is encountered (e.g., "RNA_SEQ"), the record set model may need different fields. The skill should handle unrecognised assay types gracefully.
-
-### Reversibility (SDTM → Record Set)
-
-Not all information survives the forward transformation into SDTM (e.g., the censoring zone name lives in `SUPPLB.CENSOR` but the LoD/LLOQ/ULOQ thresholds themselves are not represented in SDTM). The reverse transform may produce a degraded record set. The skill should document which fields are lossy.
-
----
-
-*See also: `sdtmig-guide.md` (censoring logic, BM domain, join paths), `bmkb-model.md` (BMKB caveats), `best-definitions.md` (prognostic vs predictive), `bco-schema.md` (field validation).*
+## 1. Censoring
+
+`scripts/censor_state.py` decides the zone and the SDTM fields. Never assign a zone by eye.
+
+| Zone | Condition | LBORRES (LoD 0.006, LLOQ 0.03, ULOQ 50) | LBSTRESN |
+|---|---|---|---|
+| `below_lod` | value < LoD | `<0.006` | null |
+| `detected_below_lloq` | LoD ≤ value < LLOQ | `<0.03` | null |
+| `quantifiable` | LLOQ ≤ value ≤ ULOQ | `0.058` | `0.058` |
+| `above_uloq` | value > ULOQ | `>50` | null |
+
+- The thresholds come from tBCO `analytical_performance` (`limit_of_detection`,
+  `limit_of_quantitation`, `upper_limit_of_quantitation`). Never hard-code them.
+- Write only these four values. `measurable` is accepted on input as a synonym of
+  `quantifiable`; `BLQ`, `BLOQ`, `<LLOQ` and `not_detected` are rejected.
+- A censored LBSTRESN is null: never 0 and never the limit itself.
+- If LoD = LLOQ, the `detected_below_lloq` zone is empty. Still use the zone names the tBCO
+  thresholds produce.
+
+## 2. Units
+
+- Take the unit from tBCO `reporting_convention.unit` and use it in LBORRESU, LBSTRESU and in
+  the BMRULE text (`Value > 0.04 ng/mL`).
+- LBORRESU/LBSTRESU use the CDISC UNIT codelist. Mathematically equal units (`ng/mL` and `ug/L`)
+  map to the one CDISC submission value (SDTMIG LB assumption 7).
+- Two assays that report the same analyte in different units are two tBCOs and two BM rows.
+
+## 3. Assay non-harmonisation
+
+- Different assays for one analyte have different LoD/LLOQ/ULOQ and reference limits (TnI-Ultra
+  99th percentile 0.04 ng/mL; Abbott Architect STAT 0.026 ng/mL). Thresholds never transfer.
+- One tBCO per assay; one BM row per tBCO (and per role/condition). Never point one BM row at two
+  assays.
+- If limits change between reagent lots, the tBCO carries the IFU values in force; say in the
+  report that earlier lots are not represented.
+
+## 4. BM domain
+
+The variable list and provenance letters are in `sdtmig-guide.md` §6, the only copy.
+
+- BM is context, LB is data. BM holds no subject IDs, results, visits or dates of measurement.
+- BMSRCDOM / BMSRCVAR / BMSRCVAL must select the LB records exactly: BMSRCVAL equals the
+  LBTESTCD actually emitted.
+- BMMETHOD is the technique (`IMMUNOASSAY`); the product name goes in BMASSAY.
+- BMRULE renders the tBCO rule with resolved values (`Value > 0.04 ng/mL AND rise or fall >= 30%
+  within 6 h`), not the template's generic expression.
+- BM is not in SDTMIG v3.4. Say in the hand-over that it may need to be submitted as a custom
+  domain.
+
+## 5. BiomarkerKB record
+
+- **Condition.** Use the condition the study is about (from the context-of-use document), never
+  the one in the template or the example.
+- **No BiomarkerKB-assigned fields.** Never emit `biomarker_id`, `biomarker_canonical_id`,
+  `biomarker_id_md5`, `canon_id_md5`, `biomarker_id_new` or `source_list`. `validate_bmkb.py`
+  rejects them.
+- **`biomarker_component` has exactly five fields:** `component_index`, `entity_index`,
+  `assessed_biomarker_entity_id`, `assessed_entity_type`, `biomarker`. Do not emit
+  `biomarker_component_new`, `evidence_source`, `annotations`, `specimen`, `biomarker_orig`,
+  `assessed_biomarker_entity_url` or an entity name.
+- **No evidence in the record.** Evidence ids (`PMID:19710485`) come from the study documents and go
+  to the converter with `--evidence`.
+- **Normal ranges are not reference limits.** `entity_normal_ranges` are population norms; tBCO
+  `reference_limits` are assay cut-offs. Never fill one from the other.
+- **The `biomarker` statement is not a test code.** `Increased level of protein TNNI3/UPKB:P19429`
+  goes to BMCVTERM; LBTESTCD is a CDISC test code.
+
+## 6. tBCO / rBCO
+
+- **Missing values** follow the policy in `SKILL.md` ("Missing values"): strings `PLACEHOLDER`,
+  numbers `null`, and converter-critical fields stop the run and are asked for.
+- **`analytical_performance` is mandatory for conversion.** Without LoD, LLOQ and ULOQ no censor
+  zone can be computed.
+- **Versioning.** Each rBCO's `provenance_domain.derived_from` names the tBCO `object_id`. When the
+  assay specification changes, issue a new tBCO version; never edit a released tBCO in place.
+
+## 7. SDTM output
+
+- **LBTESTCD** comes from CDISC Controlled Terminology (LBTESTCD codelist), ≤ 8 characters, no
+  leading digit. A gene symbol (`TNNI3`) is not a lab test code; look up the CT term for the
+  analyte and keep the full name in LBTEST (≤ 40 characters).
+- **CT everywhere it exists:** LBTEST, LBSPEC (SPECTYPE), LBMETHOD, LBORRESU/LBSTRESU (UNIT).
+  Flag any value that is not a CT term.
+- **Baseline.** LBBLFL is `Y` or null, never `N`. LBLOBXFL (Expected) flags the last value before
+  RFXSTDTC; with no exposure in the study, leave it null.
+- **Limits belong in LB.** LBLLOD is a standard variable and LBLLOQ/LBULOQ may be added
+  (SDTMIG §8.4.4 forbids SUPPLB for them). The converter still writes them to SUPPLB; say so in the
+  hand-over.
+- **Multiple timepoints per subject.** A subject may have several measurements (0 h, 3 h, 6 h).
+  Each gets:
+  - A separate rBCO (one per collection timepoint)
+  - A separate LB row
+  - The same BM row (BM is assay-level, not timepoint-level)
+- **Joins.** LB and SUPPLB join DM on STUDYID + USUBJID. BM has no USUBJID; it joins LB through
+  BMSRCDOM/BMSRCVAR/BMSRCVAL. Always include DM.
+- **Other domains.** If the biomarker is genomic, cellular, microbiological, histological or a drug
+  concentration, its results do not belong in LB. Check the domain index in `sdtmig-guide.md` §2.
+
+## 8. Round trip (SDTM → record set)
+
+- The thresholds survive (SUPPLB or LB limits) and so do the censor zones (SUPPLB.CENSOR).
+- Lost: result values (the rBCO has no value field), BMEVID (the BMKB record has no evidence),
+  instrument, lot, calibration and QC detail. The reverse output marks them `PLACEHOLDER`; list
+  them in the hand-over.
+- The IEEE 2791 schema may change. Reconcile `references/schemas/` with
+  `https://w3id.org/ieee/ieee-2791-schema/2791object.json` when you bump the spec version.
+
+## 9. Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `validate_bco.py` FAIL | Missing domain, missing required field, or malformed etag | Read the reported check. Required domains are listed in `SKILL.md` Step 2. Re-run `finalize_draft.py` after any hand edit |
+| `finalize_draft.py --check` MISMATCH | Content changed after the etag was computed | `python scripts/finalize_draft.py --input <file>`, then `--check` again |
+| Censor state rejected | A non-standard term (`BLQ`, `<LLOQ`, `not_detected`) | Use the four zones in §1; let `resolve_censor_state()` decide |
+| Numeric LBSTRESN on a censored result | The zone was not applied | Only `quantifiable` gets a number; `make_sdtm_fields()` returns the pair |
+| `validate_bmkb.py` FAIL on entity type | Type outside the allowed set or wrong case | `python scripts/biomarker_accessions.py` prints the table |
+| Wrong accession | Resource chosen by guess | `accession_resource_for(<type>)`; confirm the id resolves before using it |
+| BM.BMEVID empty | No `--evidence` given (the record carries none by design) | Pass `--evidence PMID:...` from the context-of-use or protocol |
+| BM.BMENTNM empty | The accession has no entry in `assets/entity_names.json` | Add `"<accession exactly as in the record>": "<name>"` and re-run |
+| BM provenance letter disputed | Copies drifted | `sdtmig-guide.md` §6 is the only table |
+| "jsonschema not available" | Package missing; `validate_bco.py` fails every file without it | `pip install jsonschema` |
+| SCHEMA `Additional properties are not allowed` | A key the IEEE 2791 schema does not define (e.g. `mediatype` in io_domain, `unit` in parametric_domain) | Remove it or move it to `extension_domain`; never edit `references/schemas/` |

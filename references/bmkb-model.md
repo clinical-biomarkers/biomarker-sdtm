@@ -1,8 +1,8 @@
 ---
 doc: bmkb-model
-version: 2.0.0
+version: 2.1.0
 status: current
-updated: 2026-10-15
+updated: 2026-10-19
 source: BiomarkerKB data-submission wiki + Troponin I example
 ---
 
@@ -14,6 +14,12 @@ source: BiomarkerKB data-submission wiki + Troponin I example
 > only *after* it receives the data, so a submitter must not emit them.
 
 **Sources:** BiomarkerKB data-submission wiki; the Troponin I worked example.
+
+## Contents
+
+1. Conceptual model · 2. Submission schema · 3. `condition` · 4. `best_biomarker_role` ·
+5. `biomarker_component[]` · 6. The biomarker statement and entity type · 7. Accession lookup ·
+8. `entity_normal_ranges[]` · 9. `provenance` · 10. Mapping to the BM domain · 11. Notes
 
 ---
 
@@ -153,20 +159,12 @@ A single object naming who supplied the record — **not** a citation list.
 - `date` — ISO date the record was produced
 - `description` — free-text note on the record's origin
 
-## 10. Mapping BMKB → SDTM BM domain
+## 10. Mapping to the BM domain
 
-- `biomarker_component[].assessed_biomarker_entity_id` → `BMENTID`
-- entity **name resolved from the accession** (cached UniProt/CO/GlyTouCan) → `BMENTNM`
-- `biomarker_component[].assessed_entity_type` → `BMENTTP` (uppercase)
-- `biomarker_component[].biomarker` → `BMCVTERM`
-- `best_biomarker_role[].role` → `BMROLE` (uppercase)
-- `condition.name` → `BMCOND` · `condition.id` → `BMCONDID`
-- `provenance.date` → `BMASSDTC`
-- BMID / BMVER / BMSRC* are study-side, not BMKB
-- **`BMEVID` is not sourced from BMKB** — the submission record carries no evidence;
-  the study documents (context-of-use / protocol citations) supply it.
-
-Provenance codes in the BM domain: **K** = BiomarkerKB-sourced fields.
+The BMKB → BM variable mapping and provenance letters are in `sdtmig-guide.md` §6, the only copy.
+Two points matter while writing the record: the entity *name* is not carried (BM.BMENTNM is resolved
+from `assets/entity_names.json`), and the record carries no evidence (BM.BMEVID comes from the
+study documents via `--evidence`).
 
 ## 11. Notes
 

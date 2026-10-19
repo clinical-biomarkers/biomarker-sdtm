@@ -49,9 +49,11 @@ flowchart LR
 
 Each full run produces a **biomarker record set** that travel with the data:
 
-- **¹ tBCO**: the _template_ BioCompute Object, the assay specification
-- **² rBCO**: the _run_ BioCompute Object, one record per patient run
-- **³ BMKB**: the BiomarkerKB record, what the biomarker means in controlled vocabulary
+**¹ tBCO**: the _template_ BioCompute Object, the assay specification
+
+**² rBCO**: the _run_ BioCompute Object, one record per patient run
+
+**³ BMKB**: the BiomarkerKB record, what the biomarker means in controlled vocabulary
 
 SDTM records _what the measured values were_. The record set records _how they were produced_
 and _what they mean_, so the study remains reproducible and comparable long after the
@@ -59,17 +61,17 @@ spreadsheet is gone.
 
 ## Standards & knowledge frameworks
 
-**BioCompute Object (BCO).**
+### BioCompute Object (BCO)
 
-A BCO is a machine-readable record of _how_ a computation was
+A [BCO](https://www.biocomputeobject.org/) is a machine-readable record of _how_ a computation was
 performed: the scientific intent, the computational steps, the parameters, the software, and
 the inputs and outputs. It is an IEEE standard (IEEE 2791), community-driven and peer-reviewed. For clinical
 research it supplies a regulatory-grade audit trail, allowing an analysis to be re-executed and
 verified years later rather than accepted on trust.
 
-**BiomarkerKB.**
+### BiomarkerKB
 
-BiomarkerKB is a knowledgebase that records what a biomarker _means_. It
+[BiomarkerKB](https://biomarkerkb.org) is a knowledgebase that harmonizes and standardizes biomarker data. It
 captures the measured entity, the condition, and its role (diagnostic, prognostic, monitoring,
 and others) in a controlled vocabulary, so that a finding from one study is directly
 comparable with a finding from another. Full project description can be found in [_Patterns_ (2026)](https://doi.org/10.1016/j.patter.2026.101636).
@@ -95,41 +97,44 @@ _meaning_.
 
 ## Quick Start
 
-### Install as a Claude skill
-
 > [!Note]
 > Skill uploads are not supported on mobile devices. However, you can upload them from a computer and then use them on your phone while signed into your account.
 
-1. **Download** the repository as a ZIP
-   - On the repository page, choose `< > Code` → [`Download ZIP`](https://github.com/clinical-biomarkers/biomarker-sdtm/archive/refs/heads/main.zip).
+### 1. **Download** the repository as a ZIP
 
-2. **Upload** the ZIP to your preferred application
+- On the repository page, choose `< > Code` → [`Download ZIP`](https://github.com/clinical-biomarkers/biomarker-sdtm/archive/refs/heads/main.zip).
 
-   > Claude
-   - Go to `Settings` → (Side bar) Customize: `Skills` → `+ Add` dropdown → `Upload skill`.
-   - Drag and drop the **ZIP** file to the drop zone → `Upload`.
+### 2. **Upload** the ZIP to your preferred application
 
-   > ChatGPT
-   - Go to `Plugins` → Toggle to `Skills` → `Add` → `Upload from your computer`.
-   - Drag and drop the **ZIP** file to the drop zone to upload.
+> Claude
 
-   > Gemini
-   - Go to `Settings` → Preferences: `Skills` → `Create` dropdown → `Upload`.
-   - Drag and drop the **ZIP** file to the drop zone to upload.
+- Go to `Settings` → (Side bar) Customize: `Skills` → `+ Add` dropdown → `Upload skill`.
+- Drag and drop the **ZIP** file to the drop zone → `Upload`.
 
-3. **Invoke** it from any chat with the slash command:
-   - Upload your clinical documents using `+` (Add files).
-   - Invoke the skill with the slash command:
+> ChatGPT
 
-   ```
-   /biomarker-sdtm
-   ```
+- Go to `Plugins` → Toggle to `Skills` → `Add` → `Upload from your computer`.
+- Drag and drop the **ZIP** file to the drop zone to upload.
 
-   We have included a set of simulated clinical documents in the skill package for demos. Try:
+> Gemini
 
-   ```
-   /biomarker-sdtm help me draft a template BioCompute Object using the example troponin_I data available in the fixtures/ folder.
-   ```
+- Go to `Settings` → Preferences: `Skills` → `Create` dropdown → `Upload`.
+- Drag and drop the **ZIP** file to the drop zone to upload.
+
+### 3. **Invoke** it from any chat with the slash command:
+
+- Upload your clinical documents using `+` (Add files).
+- Invoke the skill with the slash command:
+
+```
+/biomarker-sdtm
+```
+
+We have included a set of simulated clinical documents in the skill package for demos. Try:
+
+```
+/biomarker-sdtm help me draft a template BioCompute Object using the example troponin_I data available in the fixtures/ folder.
+```
 
 > [!TIP]
 > Claude also loads `SKILL.md` automatically when a request matches it. Mention BioCompute, a
@@ -139,10 +144,10 @@ _meaning_.
 
 ```
 biomarker-sdtm/
-├── SKILL.md              # the skill: frontmatter + workflow (start here)
-├── README.md             # this file
-├── CHANGELOG.md          # what changed and when
-├── references/           # docs + IEEE 2791 schemas, loaded on demand
+├── SKILL.md              # workflow (start here)
+├── README.md
+├── CHANGELOG.md
+├── references/           # docs + schemas, loaded on demand
 │   ├── README.md         # index, naming and versioning convention
 │   ├── bmkb-model.md     # BiomarkerKB submission schema + accession lookup
 │   ├── sdtmig-guide.md   # SDTMIG rules for DM, LB, SUPPLB, BM
@@ -151,7 +156,7 @@ biomarker-sdtm/
 │   ├── best-definitions.md
 │   ├── pitfalls.md
 │   └── schemas/          # IEEE 2791 JSON Schemas
-├── scripts/              # only what the agent needs at runtime
+├── scripts/              # accessed by agent at runtime
 │   ├── finalize_draft.py        # strip //_ annotations, compute/verify the etag
 │   ├── validate_bco.py          # IEEE 2791 structural validation
 │   ├── validate_bmkb.py         # BMKB submission-schema validation
@@ -160,8 +165,8 @@ biomarker-sdtm/
 │   ├── record_set_to_sdtm.py     # record set → SDTM
 │   └── sdtm_to_record_set.py     # SDTM → record set
 ├── assets/              # annotated templates the agent fills
-├── examples/            # validated reference outputs + adjudication log
-└── fixtures/            # simulated input documents for testing
+├── examples/            # VALIDATED reference outputs + adjudication log
+└── fixtures/            # SIMULATED input documents for testing
 ```
 
 ## Compatibility checks (Developers)
@@ -169,13 +174,11 @@ biomarker-sdtm/
 Checks to confirm the helpers run correctly in your environment. No documents required.
 
 ```bash
-cd scripts
-python finalize_draft.py --self-test
-python validate_bmkb.py  --self-test
-python biomarker_accessions.py --self-test
-python validate_bco.py ../examples/troponin_I/Troponin_I_tBCO.json
-python record_set_to_sdtm.py --self-test
+python scripts/run_checks.py
 ```
+
+It runs every script's self-test plus a comparison against the Troponin I gold example, and exits
+non-zero if anything fails.
 
 ## Standard versions
 

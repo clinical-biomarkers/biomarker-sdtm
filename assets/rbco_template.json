@@ -108,11 +108,11 @@
             "specimen_type": "PLACEHOLDER - e.g., SERUM, PLASMA",
             "collection_dtc": "PLACEHOLDER - ISO 8601 datetime of specimen collection",
             "analysis_dtc": "PLACEHOLDER - instrument timestamp",
-            "censor_state": "quantifiable",
+            "censor_state": "PLACEHOLDER - from resolve_censor_state()",
             "repeated": false
           }
         ],
-        "//_measurements_help": "Array of one or more measurements in this run. Expand with additional entries. censor_state values: quantifiable | detected_below_lloq | below_lod | above_uloq | not_detected. Set repeated=true only for replacement measurements.",
+        "//_measurements_help": "Array of one or more measurements in this run. Expand with additional entries. censor_state comes from scripts/censor_state.py resolve_censor_state(); allowed values are listed in references/pitfalls.md section 1. Set repeated=true only for replacement measurements.",
         "deviations": [],
         "//_deviations_help": "Array of protocol deviation objects. Leave empty if none. Each deviation: { 'id', 'description', 'impact', 'resolution' }.",
         "note": "execution_domain is specified for computational workflows; for a bench assay it is mapped by analogy, with the instrument's assay definition file as the script and the instrument's environmental settings as the environment variables."
@@ -144,7 +144,7 @@
             "qorig": "CRF",
             "qeval": "VENDOR",
             "resolves_in": "tBCO",
-            "path": "assay.name"
+            "path": "assay.assay_name"
           },
           {
             "qnam": "ASSAYPLT",

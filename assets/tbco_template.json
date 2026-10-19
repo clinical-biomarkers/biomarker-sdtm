@@ -2,6 +2,7 @@
   "//_note": "================================================================================",
   "//_note_1": "tBCO TEMPLATE — Template BioCompute Object (IEEE 2791-2020).",
   "//_note_2": "One tBCO per biomarker assay. Fill PLACEHOLDER values from assay documentation.",
+  "//_missing_values_help": "Unknown strings stay PLACEHOLDER; unknown numbers stay null (never 0). LoD, LLOQ, ULOQ, unit and specimen type are required before SDTM conversion: ask the user if the documents lack them.",
   "//_note_3": "Reference: examples/troponin_I/Troponin_I_tBCO.json, references/bco-schema.md",
   "//_note_4": "===================================================================================",
 
@@ -117,12 +118,12 @@
           "timepoints": [
             {
               "label": "PLACEHOLDER - e.g., admission",
-              "offset": 0,
+              "offset": null,
               "unit": "PLACEHOLDER - hours | minutes | days"
             },
             {
               "label": "PLACEHOLDER - e.g., 3h",
-              "offset": 3,
+              "offset": null,
               "unit": "PLACEHOLDER - hours"
             }
           ],
@@ -136,28 +137,28 @@
             "reported": false
           },
           "limit_of_detection": {
-            "value": 0.0,
+            "value": null,
             "unit": "PLACEHOLDER - same unit as LoB"
           },
           "limit_of_quantitation": {
-            "value": 0.0,
+            "value": null,
             "unit": "PLACEHOLDER",
             "basis": "PLACEHOLDER - e.g., 'concentration at 10% CV' or '20% CV'"
           },
           "upper_limit_of_quantitation": {
-            "value": 0.0,
+            "value": null,
             "unit": "PLACEHOLDER"
           },
           "measuring_range": {
-            "low": 0.0,
-            "high": 0.0,
+            "low": null,
+            "high": null,
             "unit": "PLACEHOLDER"
           },
           "imprecision": [
             {
-              "concentration": 0.0,
+              "concentration": null,
               "unit": "PLACEHOLDER",
-              "cv_pct": 0.0
+              "cv_pct": null
             }
           ],
           "linearity": "PLACEHOLDER - Description or 'Not stated'",
@@ -171,12 +172,12 @@
           {
             "type": "PLACEHOLDER - 99th percentile | upper reference limit | decision limit | etc.",
             "direction": "PLACEHOLDER - upper | lower | both",
-            "value": 0.0,
+            "value": null,
             "unit": "PLACEHOLDER",
             "strata": [],
             "population": {
               "source": "PLACEHOLDER - reference study or population",
-              "n": 0
+              "n": null
             }
           }
         ],
@@ -218,7 +219,7 @@
 
         "reporting_convention": {
           "unit": "PLACEHOLDER",
-          "decimal_places": 3,
+          "decimal_places": null,
           "censoring": "PLACEHOLDER - e.g., 'values below the limit of quantitation are reported as <LLOQ and excluded from numeric summaries'"
         }
       }

@@ -1,255 +1,230 @@
 ---
 doc: sdtmig-guide
-version: 1.0.0
+version: 2.0.0
 status: current
-updated: 2026-10-15
-source: CDISC SDTMIG v3.4
+updated: 2026-10-19
+source: CDISC SDTMIG v3.4 (DM, LB, SUPPLB, domain index) · Troponin_I_SDTM.xlsx Definitions sheet (BM)
 ---
 
-> **Full specification:** the complete SDTMIG v3.4 PDF ships beside this file as
-> `sdtmig-v3.4.pdf` (7.2 MB, 2022-07-21). Consult it whenever this summary is not
-> sufficient — this file is a distillation, not a substitute.
+# SDTM guide for the biomarker record set
 
-# SDTM for the Biomarker Record Set Model
+## Contents
 
-> SDTMIG v3.4 rules for the domains the Troponin I example uses.
-> Covers DM, LB, SUPPLB, and the proposed BM domain.
-> Based on SDTMIG v3.4 (Final, 2022-07-21) and SDTM v2.1 (Final, 2024-06-07).
+1. How to use this guide
+2. Domain index: which domain holds which data (with PDF pages)
+3. DM: Demographics
+4. LB: Laboratory Test Results
+5. SUPPLB: Supplemental Qualifiers for LB
+6. BM: Biomarker Context (proposed)
+7. Reverse mapping: SDTM → record set
 
-## Overview: Which Domains & Why
+## 1. How to use this guide
 
-| Domain | Class | Purpose | In SDTMIG? |
-|--------|-------|---------|------------|
-| **DM** | Special-purpose | Demographics — one row per subject | ✅ Yes (§5.2) |
-| **LB** | Findings (specimen-based) | Laboratory test results — one row per result | ✅ Yes (§6.3.5.6) |
-| **SUPPLB** | Relationship | Supplemental LB qualifiers — one row per qualifier | ✅ Yes (§8.4) |
-| **BM** | (Proposed) | Biomarker context — one row per biomarker-assay combo | ❌ Not yet proposed |
+- **Sources of truth.** For every standard domain (DM, LB, SUPPLB and all of §2), the source is
+  `references/sdtmig-v3.4.pdf`; this guide distils it. For the proposed BM domain the source is the
+  Definitions sheet of `examples/troponin_I/Troponin_I_SDTM.xlsx`; §6 reproduces it.
+- **Reading order.** Read §2 first to decide which domains the study needs, then the section for each
+  domain. Open the PDF only when this guide cannot answer the question: go to the page listed in §2,
+  not the whole file (461 pages).
+- **Provenance letters** used below: **T** tBCO · **R** rBCO / run · **K** BiomarkerKB record ·
+  **N** new, proposed here · **S** study, CRF or derived.
 
-### How the Record Set maps to SDTM
+## 2. Domain index
 
-```
-tBCO ──────→ LB reference limits, method, specimen, LOINC
-       ─────→ SUPPLB (LBGRPID): ASSAYNAM, ASSAYPLT, LBLOD, LBLLOQ, LBULOQ
-       ─────→ BM: assay info, BMBCOID, BMRULE
+The converter emits DM, LB, SUPPLB and BM only. Use this index to check whether the study's
+biomarker also needs another domain; if it does, say so in your report rather than forcing the data
+into LB. PDF page = printed page.
 
-rBCO ──────→ SUPPLB (LBSEQ): CENSOR (derived from measurement values)
-       ─────→ SUPPLB (LBGRPID): RBCOID
-       ─────→ DM: subject reference dates (none directly — DM is CRF-sourced)
+### Where the measurement itself belongs
 
-BiomarkerKB ─→ BM: BMENTNM, BMENTID, BMENTTP, BMCVTERM, BMROLE,
-                BMCOND, BMCONDID, BMEVID
-```
+| Measurement | Domain | PDF page |
+|---|---|---|
+| Clinical chemistry, haematology, immunoassay of a protein or metabolite in blood or urine | **LB** Laboratory Test Results | 241 |
+| Nucleic-acid characteristics: variants, expression, copy number, methylation | **GF** Genomics Findings | 220 |
+| Cell populations by flow or mass cytometry, cell phenotype | **CP** Cell Phenotype Findings | 199 |
+| Anti-drug antibodies, immunogenicity | **IS** Immunogenicity Specimen Assessments | 228 |
+| Organisms and their drug susceptibility | **MB** / **MS** Microbiology | 248 |
+| Histopathology findings on tissue | **MI** Microscopic Findings | 263 |
+| Drug or metabolite concentrations and PK parameters | **PC** / **PP** Pharmacokinetics | 267 |
+| Specimen characteristics (volume, quality), not analyte results | **BS** Biospecimen Findings | 196 |
+| ECG | **EG** | 185 |
+| Imaging or physiology by body system | **CV** 286 · **MK** 290 · **NV** 294 · **OE** 298 · **RP** 305 · **RE** 308 · **UR** 312 | — |
+| Tumour measurements and response | **TU** 344 · **TR** 350 · **RS** 329 | — |
+| Vital signs | **VS** | 358 |
+| Findings about an event or intervention | **FA** Findings About | 361 |
+| Generic specimen-based variables (incl. --LLOQ, --ULOQ) | 6.3.5.1 | 194 |
 
-### Join Path
+### Context some BEST roles need
 
-```
-DM ──USUBJID──→ LB ──LBSEQ──→ SUPPLB (per-result qualifiers like CENSOR)
-                  ───────────→ SUPPLB (LBGRPID-level qualifiers: ASSAYNAM, RBCOID…)
-BM ──BMSRCDOM/BMSRCVAR/BMSRCVAL──→ LB (context → result pointer)
-BM ──BMBCOID──→ tBCO.object_id (links outside SDTM)
-```
+| Context | Domain | PDF page |
+|---|---|---|
+| Medical product given (predictive, safety, pharmacodynamic, monitoring of treatment) | **EX** Exposure / **EC** Exposure as Collected | 104 / 107 |
+| Adverse events (safety) | **AE** | 133 |
+| Condition events, e.g. the adjudicated diagnosis (diagnostic, prognostic outcomes) | **CE** Clinical Events | 148 |
+| Pre-existing conditions (prognostic, susceptibility) | **MH** Medical History | 171 |
+| Disposition and death (prognostic outcomes) | **DS** 155 · **DD** 183 | — |
+| Specimen collection and handling events | **BE** Biospecimen Events | 143 |
+| Visits actually attended | **SV** Subject Visits | 86 |
+| Planned arms, elements, visits, trial summary | **TA** 384 · **TE** 402 · **TV** 407 · **TS** 417 | — |
 
----
+### Cross-cutting rules
 
-## DM — Demographics (§5.2 SDTMIG v3.4)
+| Topic | Section | PDF page |
+|---|---|---|
+| Creating a new (custom) domain | 2.6 | 13 |
+| Missing values | 4.2.5 | 29 |
+| Original vs standardised results, tests not done | 4.5.1 | 51 |
+| Baseline: --LOBXFL vs --BLFL | 4.5.9 | 59 |
+| Time points (--TPT, --ELTM, --TPTREF) | 4.4.10 | 46 |
+| --GRPID within a domain | 8.1 | 428 |
+| RELREC (linking records, e.g. LB to AE) | 8.2 | 429 |
+| Supplemental qualifiers, and when not to use them | 8.4, 8.4.4 | 432, 434 |
+| Where data belong (choosing a class) | 8.6 | 435 |
+| RELSPEC (related specimens) | 8.8 | 439 |
 
-**Class:** Special-purpose. **Structure:** 1 record/subject.
+## 3. DM: Demographics (§5.2, p. 62)
 
-### Core variables (from the Troponin I example)
+One record per subject. Every value comes from the CRF or study data, never from a BCO.
 
-| Variable | Core | Source | Notes |
-|----------|------|--------|-------|
-| STUDYID | Req | Study | BM-2026-01 in the example |
-| DOMAIN | Req | Fixed | DM |
-| USUBJID | Req | CRF | Unique across studies |
-| SUBJID | Req | CRF | Site-local ID |
-| SITEID | Req | CRF | — |
-| AGE | Exp | CRF | — |
-| AGEU | Exp | CRF | YEARS |
-| SEX | Exp | CRF | M / F |
-| COUNTRY | Exp | CRF | ISO 3166-1 alpha-3 |
-| RFSTDTC | Exp | Derived | Reference start — study day 1 |
+| Variable | Core | Note |
+|---|---|---|
+| STUDYID, DOMAIN, USUBJID, SUBJID, SITEID | Req | DOMAIN = `DM` |
+| AGE, AGEU | Exp | AGEU from CT (`YEARS`) |
+| SEX | Req | `M`, `F`, `U`, `UNDIFFERENTIATED` |
+| RACE / ETHNIC | Exp / Perm | Often absent from lab documents: leave empty and list it as unfilled |
+| COUNTRY | Req | ISO 3166-1 alpha-3 |
+| RFSTDTC | Exp | Reference start; anchors study day |
+| RFXSTDTC | Exp | First exposure; needed to derive LBLOBXFL. Only applies when the study gives a product |
+| ARM / ACTARM (and codes) | Exp | Needed for predictive biomarkers; leave out for observational studies |
 
-**Role in the record set model:** Demographics come from the CRF/study data, NOT from the BCOs. The record set model does not add new fields to DM. The rBCO identifies the patient (USUBJID, SUBJID, SITEID) but does NOT duplicate DM fields.
+## 4. LB: Laboratory Test Results (§6.3.5.6, p. 241)
 
----
+One record per test per time point per visit per subject.
 
-## LB — Laboratory Test Results (§6.3.5.6 SDTMIG v3.4)
-
-**Class:** Findings (specimen-based). **Structure:** 1 record/result/value/timepoint/subject.
-
-### Core variables
-
-| Variable | Core | Prov. | Source in record set model |
-|----------|------|-------|--------------------------|
-| STUDYID | Req | S | Study |
-| DOMAIN | Req | S | LB |
-| USUBJID | Req | S | CRF → DM |
-| LBSEQ | Req | S | Sequence (surrogate key) |
-| LBTESTCD | Req | S | TNNI3 from CT |
-| LBTEST | Exp | S | Troponin I cardiac muscle |
-| LBCAT | Perm | S | e.g. BIOMARKER |
-| LBMETHOD | Perm | S | **tBCO** `assay.method` → IMMUNOASSAY |
-| LBSPEC | Perm | S | **tBCO** specimen → SERUM |
-| LBBLFL | Perm | S | Baseline flag |
-| **LBORRES** | **Exp** | **R** | Original result (censored: `<0.006`) |
-| **LBORRESU** | **Exp** | **R** | **tBCO** reporting_convention.unit → ng/mL |
-| **LBSTRESC** | **Exp** | **R** | Standardized char result |
-| **LBSTRESN** | **Exp** | **R** | Numeric result (null if censored) |
-| **LBSTRESU** | **Exp** | **R** | **tBCO** → ng/mL |
-| LBSTNRHI | Perm | **T** | **tBCO** `reference_limits.upper` → 0.04 |
-| LBSTNRC | Perm | **T** | Reference qualifier |
-| LBLOINC | Perm | **T** | **tBCO** `assay.loinc_code` → 10839-9 |
-| VISITNUM | Exp | S | Visit number |
+| Variable | Core | Prov. | Source / rule |
+|---|---|---|---|
+| STUDYID, DOMAIN, USUBJID | Req | S | DOMAIN = `LB` |
+| LBSEQ | Req | S | Unique per subject; SUPPLB per-result rows point here |
+| LBGRPID | Perm | T | Set to the assay so SUPPLB can carry assay-level facts once per subject |
+| LBREFID | Perm | R | Specimen ID from the rBCO measurement |
+| LBTESTCD | Req | T | ≤ 8 chars, letters/digits/underscore, not starting with a digit; from CDISC CT (LBTESTCD codelist) where a term exists. A gene symbol is not a test code |
+| LBTEST | Req | T | ≤ 40 chars; CT (LBTEST) |
+| LBTMTHSN | Perm | T | Test method sensitivity, e.g. `HIGH SENSITIVITY` for hs assays |
+| LBCAT | Exp | S | e.g. `CHEMISTRY`, `HEMATOLOGY` |
+| LBORRES, LBORRESU | Exp | R / T | Result as received; unit from the UNIT codelist |
+| LBORNRLO, LBORNRHI | Exp | T | Reference range in original units |
+| LBLLOD | Perm | T | **Lower limit of detection is a standard LB variable** |
+| LBLLOQ, LBULOQ | Perm | T | Findings-class qualifiers (--LLOQ, --ULOQ, p. 194). LB assumption 5 allows any Findings-class qualifier to be added |
+| LBSTRESC | Exp | S | Standardised character result (a censored value keeps its operator, e.g. `<0.006`) |
+| LBSTRESN | Exp | S | Numeric standardised result; **null when the result is not a clean number** (§4.5.1 example: `BLQ` → null) |
+| LBSTRESU | Exp | T | Standard unit |
+| LBSTNRLO, LBSTNRHI, LBSTNRC | Exp / Perm | T | Reference range in standard units, from tBCO `reference_limits` |
+| LBNRIND | Exp | S | `NORMAL`, `HIGH`, `LOW`, `ABNORMAL` against the reference range |
+| LBSTAT, LBREASND | Perm | S | `NOT DONE` + reason when no result exists |
+| LBNAM | Perm | T | Vendor or lab name |
+| LBLOINC | Perm | T | tBCO `assay.loinc_code` |
+| LBSPEC | Perm | T | CT (SPECTYPE), e.g. `SERUM`, `PLASMA` |
+| LBMETHOD | Perm | T | The technique (`IMMUNOASSAY`), never the product name |
+| LBLOBXFL | Exp | S | `Y` on the last non-missing value before RFXSTDTC, else null |
+| LBBLFL | Perm | S | Sponsor-defined baseline, `Y` or **null** (never `N`); kept for backward compatibility |
+| LBTOX, LBTOXGR | Perm | T | Toxicity grade, for safety biomarkers |
+| VISITNUM | Exp | S | Numeric visit; from the rBCO measurement |
 | VISIT | Perm | S | Visit label |
-| LBDTC | Exp | S | **rBCO** measurement collection date |
-| LBDY | Perm | S | Study day |
+| LBDTC | Exp | R | Specimen collection date/time, ISO 8601 |
+| LBDY | Perm | S | Study day from RFSTDTC |
+| LBTPT, LBTPTNUM, LBELTM, LBTPTREF | Perm | S | Planned time points relative to a reference (dose, admission) |
 
-**Provenance codes:** **T**=tBCO, **R**=rBCO / result, **K**=BiomarkerKB, **N**=new, **S**=study/CRF/derived
+The censor zones (`below_lod`, `detected_below_lloq`, `quantifiable`, `above_uloq`) and their
+LBORRES/LBSTRESN values come from `scripts/censor_state.py`. Do not derive them by hand.
 
-### Key rules from SDTMIG
+## 5. SUPPLB: Supplemental Qualifiers for LB (§8.4, p. 432)
 
-- **LBTESTCD** must be ≤ 8 chars, from CDISC Controlled Terminology where available.
-- **LBSTRESN** is null for censored results (LBORRES holds the censored value string).
-- **LBSTNRHI/LBSTNRLO** are Qualifier variables — Permissible. Populated from tBCO `reference_limits`.
-- **LBSPEC, LBMETHOD, LBLOINC** are populated from tBCO assay specification.
-- Visit timing: VISITNUM, VISIT, LBDTC from the rBCO measurement records.
+One row per qualifier per parent record. IDVAR/IDVARVAL point at the parent: `LBSEQ` for a
+per-result fact, `LBGRPID` for a fact shared by a block of records.
 
----
+| Variable | Core | Rule |
+|---|---|---|
+| STUDYID, RDOMAIN, USUBJID | Req | RDOMAIN = `LB` |
+| IDVAR, IDVARVAL | Exp | Parent variable and its value |
+| QNAM | Req | ≤ 8 chars, same character rules as --TESTCD |
+| QLABEL | Req | ≤ 40 chars |
+| QVAL | Req | Text, ≤ 200 chars |
+| QORIG | Req | `CRF`, `Assigned`, `Derived`, `Protocol`, ... |
+| QEVAL | Exp | Only for subjective values (e.g. `INVESTIGATOR`, `SPONSOR`, `VENDOR`) |
 
-## SUPPLB — Supplemental Qualifiers for LB (§8.4 SDTMIG v3.4)
+**Rule (§8.4.4, p. 434): do not use SUPPLB for data that a standard LB variable can hold.**
 
-**Class:** Relationship. **Structure:** 1 row/qualifier/parent-record.
+The project proposes these qualifiers (source: xlsx Definitions sheet):
 
-### Variables
+| QNAM | Keyed on | Prov. | Content | Status under §8.4.4 |
+|---|---|---|---|---|
+| ASSAYNAM | LBGRPID | T | Assay trade name (tBCO `assay.assay_name`) | OK: LB has no variable for it |
+| ASSAYPLT | LBGRPID | T | Instrument / analyser (tBCO `assay.platform`) | OK |
+| RBCOID | LBGRPID | R | rBCO `object_id`: the only link from a result to its run | OK |
+| CENSOR | LBSEQ | R | Censor zone, derived, never entered by hand | OK |
+| LBLOD | LBGRPID | T | Limit of detection | **Conflicts:** LB.LBLLOD exists |
+| LBLLOQ | LBGRPID | T | Lower limit of quantitation | **Conflicts:** LB.LBLLOQ may be added |
+| LBULOQ | LBGRPID | T | Upper limit of quantitation | **Conflicts:** LB.LBULOQ may be added |
 
-| Variable | Core | Notes |
-|----------|------|-------|
-| STUDYID | Req | Study |
-| RDOMAIN | Req | LB (the parent domain) |
-| USUBJID | Req | Subject |
-| IDVAR | Req | Parent variable to join on — `LBSEQ` (per-result) or `LBGRPID` (per-group) |
-| IDVARVAL | Req | Value of IDVAR in parent |
-| QNAM | Req | Qualifier name (≤8 chars, no special chars, same rules as --TESTCD) |
-| QLABEL | Req | Qualifier label (≤40 chars) |
-| QVAL | Req | Qualifier value (≤200 chars) |
-| QORIG | Req | Origin — CRF, Derived, Assigned, or Protocol |
-| QEVAL | Perm | Evaluator |
+`record_set_to_sdtm.py` and the gold xlsx still emit the three conflicting qualifiers. When you hand
+over SDTM output, state that LBLLOD/LBLLOQ/LBULOQ belong in LB under SDTMIG v3.4.
 
-### Proposed qualifiers (from Troponin I Definitions sheet)
+## 6. BM: Biomarker Context (proposed; source: xlsx Definitions sheet)
 
-| QNAM | QLABEL | Keyed On | Provenance | Source |
-|------|--------|----------|------------|--------|
-| ASSAYNAM | Assay Name | LBGRPID | **T** | tBCO `assay.name` |
-| ASSAYPLT | Assay Platform | LBGRPID | **T** | tBCO `assay.platform` |
-| LBLOD | Limit of Detection | LBGRPID | **T** | tBCO `analytical_performance.limit_of_detection.value` |
-| LBLLOQ | Lower Limit of Quantitation | LBGRPID | **T** | tBCO `analytical_performance.lower_limit_of_quantitation.value` |
-| LBULOQ | Upper Limit of Quantitation | LBGRPID | **T** | tBCO `analytical_performance.upper_limit_of_quantitation.value` |
-| RBCOID | Run BCO Object ID | LBGRPID | **R** | rBCO `object_id` |
-| CENSOR | Censoring State | LBSEQ | **R** (derived) | Computed: `below_lod` / `detected_below_lloq` / `quantifiable` / `above_uloq` |
+Not in SDTMIG v3.4. One record per biomarker claim. BM carries no subject, value or date: if the
+claim is withdrawn, only BM rows are deleted and every LB result stays. Until CDISC adopts it, a
+submission may need it as a custom domain (§2.6, p. 13).
 
-### Key SUPPLB rules from SDTMIG
+Join: `BM --BMSRCDOM / BMSRCVAR / BMSRCVAL--> LB`; `BMBCOID` points at the tBCO outside SDTM.
 
-- **IDVAR = LBGRPID** for assay-level qualifiers (same value for all timepoints of a subject).
-- **IDVAR = LBSEQ** for per-result qualifiers (CENSOR).
-- **QNAM** restrictions: 8 chars max, no starting digit, letters/numbers/underscore only. Same as --TESTCD.
-- **QLABEL** max 40 chars.
-- **QVAL** max 200 chars.
-- **QORIG** for the proposed qualifiers: CRF (if entered), Derived (CENSOR), Assigned (RBCOID — from rBCO).
-- **Do not use SUPPLB** when a standard LB variable exists for the data.
+| Variable | Label | Prov. | Content |
+|---|---|---|---|
+| STUDYID | Study Identifier | S | |
+| DOMAIN | Domain Abbreviation | S | Always `BM` |
+| BMID | Biomarker Context Identifier | K | Identifier for this claim, cited by other records and documents |
+| BMVER | Biomarker Context Version | N | Increments when the rule, role or population changes |
+| BMENTNM | Entity Name | K | Name resolved from the accession via `assets/entity_names.json` |
+| BMENTID | Entity Identifier | K | Entity CURIE (`assessed_biomarker_entity_id`), e.g. `UPKB:P19429` |
+| BMENTTP | Entity Type | K | `assessed_entity_type`, as written in the BMKB record |
+| BMCVTERM | Controlled Vocabulary Term | K | The BMKB `biomarker` statement, e.g. `Increased level of protein TNNI3/UPKB:P19429` |
+| BMROLE | BEST Biomarker Role | K | `best_biomarker_role[].role`, uppercase. Only interpretable with BMCOND |
+| BMCOND | Target Condition or Exposure | K | `condition.name` |
+| BMCONDID | Condition Identifier | K | `condition.id` (DOID, MONDO, ...) |
+| BMASSAY | Assay Profile Reference | T | `assay.assay_name`; thresholds do not transfer between assays |
+| BMNAM | Assay Manufacturer | T | `assay.manufacturer` |
+| BMPLAT | Assay Platform | T | `assay.platform` |
+| BMMETHOD | Measurement Method | T | `assay.method`: the technique, never the product |
+| BMSPEC | Specimen Type | T | `specimen_requirements.specimen_type` |
+| BMSRCDOM | Source Domain | N | Domain holding the measurements, e.g. `LB` |
+| BMSRCVAR | Source Identifying Variable | N | e.g. `LBTESTCD` |
+| BMSRCVAL | Source Identifying Value | N | Must equal the LBTESTCD actually emitted |
+| BMSRCVR2 | Source Identifying Variable 2 | N | Narrows the selection when several assays share a test code, e.g. `ASSAYNAM` |
+| BMSRCVL2 | Source Identifying Value 2 | N | e.g. `TnI-Ultra` |
+| BMBCOID | BioCompute Object Identifier | T | tBCO `object_id`; authoritative for the rule |
+| BMRULE | Interpretation or Decision Rule | T | Human-readable rendering of the tBCO rule, with resolved values (`Value > 0.04 ng/mL AND rise or fall >= 30% within 6 h`) |
+| BMEVID | Evidence Reference | K | PMID / DOI. The BMKB submission record carries none, so pass it with `--evidence` from the study documents |
+| BMASSRT | Asserting Party | N | Who asserted the claim (from the context-of-use document) |
+| BMASSDTC | Assertion Date | N | ISO 8601 date the claim was asserted |
 
----
+One BM row per (biomarker, assay, role, condition). Two assays for the same analyte need two rows.
 
-## BM — Biomarker Context (PROPOSED Domain)
+## 7. Reverse mapping: SDTM → record set
 
-**Not in SDTMIG v3.4.** Proposed by the PHUSE Omics working group. This is the *context layer* — if a biomarker claim is withdrawn, only BM rows vanish; every LB result remains.
+| SDTM | Record set field |
+|---|---|
+| LB.LBSTNRHI / LBSTNRLO | tBCO `reference_limits[]` |
+| LB.LBSPEC | tBCO `specimen_requirements.specimen_type` |
+| LB.LBMETHOD / LBNAM / LBLOINC | tBCO `assay.method` / `assay.manufacturer` / `assay.loinc_code` |
+| SUPPLB.ASSAYNAM / ASSAYPLT | tBCO `assay.assay_name` / `assay.platform` |
+| SUPPLB.LBLOD / LBLLOQ / LBULOQ (or LB.LBLLOD / LBLLOQ / LBULOQ) | tBCO `analytical_performance.limit_of_detection` / `limit_of_quantitation` / `upper_limit_of_quantitation` `.value` |
+| BM.BMRULE | tBCO `interpretation_rules[].expression` |
+| SUPPLB.RBCOID | rBCO `object_id` |
+| LB.LBREFID / VISIT / LBDTC | rBCO `measurements[].specimen_id` / `visit` / `collection_dtc` |
+| SUPPLB.CENSOR | rBCO `measurements[].censor_state` |
+| BM.BMENTID / BMENTTP / BMCVTERM | BMKB `biomarker_component[].assessed_biomarker_entity_id` / `assessed_entity_type` / `biomarker` |
+| BM.BMROLE | BMKB `best_biomarker_role[].role` (lowercase) |
+| BM.BMCOND / BMCONDID | BMKB `condition.name` (lowercase) / `condition.id` |
+| BM.BMASSDTC | BMKB `provenance.date` |
 
-### Proposed variables (26 columns)
-
-| Variable | Core | Prov. | Source in record set model | Example value |
-|----------|------|-------|--------------------------|---------------|
-| STUDYID | Req | S | Study | BM-2026-01 |
-| DOMAIN | Req | S | BM | BM |
-| BMID | Req | N | Unique ID | BM-001 |
-| BMVER | Req | N | Version | 1.0 |
-| BMENTNM | Req | **K** | BiomarkerKB `assessed_biomarker_entity` | Troponin I cardiac muscle |
-| BMENTID | Req | **K** | BiomarkerKB `assessed_biomarker_entity_id` | UPKB:P19429 |
-| BMENTTP | Req | **K** | BiomarkerKB `assessed_entity_type` | protein |
-| BMCVTERM | Req | **K** | BiomarkerKB `biomarker` | Increased level of protein TNNI3/UPKB:P19429 |
-| BMROLE | Req | **K** | BiomarkerKB `best_biomarker_role` | MONITORING |
-| BMCOND | Req | **K** | BiomarkerKB `condition` | Acute myocardial infarction |
-| BMCONDID | Req | **K** | BiomarkerKB `condition_id` | DOID:5844 |
-| BMASSAY | Req | **T** | tBCO `assay.name` | TnI-Ultra |
-| BMNAM | Perm | **T** | tBCO `assay.manufacturer` | Siemens |
-| BMPLAT | Perm | **T** | tBCO `assay.platform` | ADVIA Centaur XP |
-| BMMETHOD | Perm | **T** | tBCO `assay.method` | IMMUNOASSAY |
-| BMSPEC | Perm | **T** | tBCO `specimen_requirements.type` | SERUM |
-| BMSRCDOM | Req | N | Source domain | LB |
-| BMSRCVAR | Req | N | Source variable | LBTESTCD |
-| BMSRCVAL | Req | N | Source value | TNNI3 |
-| BMSRCVR2 | Perm | N | Secondary source var | ASSAYNAM |
-| BMSRCVL2 | Perm | N | Secondary source val | TnI-Ultra |
-| BMBCOID | Req | **T** | tBCO `object_id` | (tBCO ID) |
-| BMRULE | Perm | **T** | tBCO `interpretation_rules` | Value > 0.04 ng/mL AND rise or fall >= 30% within 6 h |
-| BMEVID | Perm | **K** | BiomarkerKB `evidence_source` | PMID:19710485 |
-| BMASSRT | Perm | **S** | Study assessment | Sponsor Biomarker Review Board |
-| BMASSDTC | Perm | **S** | Study date | 2026-09-01 |
-
-**Provenance codes:** **T**=tBCO, **R**=rBCO / result, **K**=BiomarkerKB, **N**=new, **S**=study/CRF/derived
-
-### Design rationale (from the reference example + SDTM expert review)
-- BM does **not** carry subject ID, values, or dates — it is the context layer.
-- BMSRCDOM/BMSRCVAR/BMSRCVAL point at the LB records (e.g., LB where LBTESTCD = TNNI3).
-- BMSRCVR2/BMSRCVL2 provide a secondary pointer (assay qualifier).
-- BMBCOID bridges outside SDTM to the tBCO record.
-- BM is a *proposed* new domain. Until CDISC standardises it, submission as a custom domain (prefix X/Y/Z) may be needed.
-
----
-
-## Censoring Logic (derived, per measurement)
-
-SDTM does not define biomarker censoring states natively. The Troponin I example defines four zones via the CENSOR qualifier in SUPPLB:
-
-| Censor state | Condition | LBORRES | LBSTRESN |
-|-------------|-----------|---------|----------|
-| `below_lod` | value < LoD | `<0.006` | null |
-| `detected_below_lloq` | LoD ≤ value < LLOQ | `<0.03` | null |
-| `quantifiable` | LLOQ ≤ value ≤ ULOQ | actual value | actual value |
-| `above_uloq` | value > ULOQ | `>50` | null |
-
-**Always derived, never entered.** Uses LoD/LLOQ/ULOQ from tBCO `analytical_performance`.
-
----
-
-## Reverse Direction: SDTM → Record Set
-
-The skill must also reconstruct the record set given SDTM domains:
-
-1. **tBCO** from LB reference fields + SUPPLB assay qualifiers + BM assay info:
-   - LBSTNRHI → `reference_limits.upper`
-   - LBSPEC → `specimen_requirements.type`
-   - LBMETHOD → `assay.method`
-   - SUPPLB.ASSAYNAM → `assay.name`
-   - SUPPLB.ASSAYPLT → `assay.platform`
-   - SUPPLB.LBLOD/LBLLOQ/LBULOQ → `analytical_performance.*`
-   - BM.BMRULE → `interpretation_rules`
-
-2. **rBCO** from SUPPLB run qualifiers + LB visit/timing:
-   - SUPPLB.RBCOID → rBCO `object_id`
-   - LBDTC, VISITNUM, visit → measurement collection data
-   - SUPPLB.CENSOR → `measurements[].censor_state`
-
-3. **BiomarkerKB record** from BM:
-   - BMENTNM → `assessed_biomarker_entity`
-   - BMENTID → `assessed_biomarker_entity_id`
-   - BMENTTP → `assessed_entity_type`
-   - BMCVTERM → `biomarker`
-   - BMROLE → `best_biomarker_role`
-   - BMCOND / BMCONDID → `condition` / `condition_id`
-   - BMEVID → `evidence_source`
-
-## References
-
-- SDTMIG v3.4 Final (2022-07-21) — ships with the skill as `references/sdtmig-v3.4.pdf`
-- SDTM v2.1 Final (2024-06-07) — the model document; not shipped, available from CDISC
-- Troponin I worked example: `examples/troponin_I/Troponin_I_SDTM.xlsx` (the Definitions sheet is the field dictionary)
+Lossy: LBORRES/LBSTRESN values have no home in the record set, and BMEVID has no home in the
+BMKB submission record. Report both as not reconstructed.

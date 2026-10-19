@@ -11,399 +11,232 @@ description: >-
 license: MIT
 metadata:
   author: GWU Mazumder Lab
-  version: "0.1.0"
+  version: "0.2.0"
   repository: https://github.com/biocompute-objects/bco-rag
 ---
 
-# Biomarker SDTM — BioCompute Objects and SDTM for Biomarker Data
+# Biomarker SDTM
 
-Turns study **documents** (assay specs, patient data) into a reusable **record set** — a template BCO (tBCO), one run BCO (rBCO) per patient, and a BiomarkerKB (BMKB) record. Converts that record set to and from **SDTM** (standard clinical-trial tabulation).
+Turns study documents (protocol, context of use, assay IFU, validation report, lab results,
+demographics) into a **record set**: one template BCO (tBCO) per assay, one run BCO (rBCO) per
+patient, and one BiomarkerKB (BMKB) record. Converts the record set to SDTM (DM, LB, SUPPLB, BM) and
+back.
 
-Two directions:
+**You author the JSON; the scripts do only the exact work** (strip annotations, etag, validation,
+censor zones, accession table, SDTM conversion). The scripts never choose values. Run every command
+from the skill root (`python scripts/<name>.py`). Needs Python 3.10+ and `pip install jsonschema`
+(`validate_bco.py` fails without it). `README.md` and `CHANGELOG.md` are for human
+maintainers; you do not need to read them.
 
-1. **Forward** — Documents → tBCO + rBCO + BMKB → SDTM (DM, LB, SUPPLB, BM)
-2. **Reverse** — SDTM → tBCO + rBCO + BMKB (round-trip)
+## Route by task
 
-## How this skill works — read this first
+Read only what the task needs. Read each reference in full the first time; every reference over
+100 lines starts with a table of contents.
 
-**You (the agent) author the artifacts.** The skill ships two kinds of asset, and it is
-important not to confuse them:
+| Task | Read | Fill | Run | Gate |
+|---|---|---|---|---|
+| Write a tBCO | `references/bco-schema.md`, `examples/troponin_I/Troponin_I_tBCO.json` | `assets/tbco_template.json` | `finalize_draft.py`, `validate_bco.py` | Step 5 |
+| Write rBCOs | `examples/troponin_I/Troponin_I_patient1_rBCO.json`, `references/pitfalls.md` §1 | `assets/rbco_template.json` | `censor_state.py`, `finalize_draft.py`, `validate_bco.py` | Step 5 |
+| Write the BMKB record | `references/bmkb-model.md`, `references/best-definitions.md` (role) | `assets/bmkb_template.json`, `assets/entity_names.json` | `biomarker_accessions.py`, `validate_bmkb.py` | Step 5 |
+| Record set → SDTM | `references/sdtmig-guide.md` §1–2 first, then the domain sections | `results.json`, `dm.json` | `record_set_to_sdtm.py` | Step 7 report |
+| SDTM → record set | `references/sdtmig-guide.md` §7 | — | `sdtm_to_record_set.py`, then both validators | Reverse step 3 |
+| Decide which SDTM domains apply | `references/sdtmig-guide.md` §2 (domain index) | — | — | Report |
+| Diagnose an error | `references/pitfalls.md` §9 | — | — | — |
 
-- **Templates** (`assets/*_template.json`) — annotated blank forms. Keys beginning with
-  `//_` are _guidance for you_; they are removed when you finalize. Read the template,
-  understand its shape, then fill it from the source documents.
-- **Scripts** (`scripts/*.py`) — only the jobs that must be exact and should not be
-  re-derived by hand:
-  - `finalize_draft.py` — strips `//_` annotation keys and computes the `etag`
-  - `validate_bco.py` — structural + IEEE 2791 schema validation
-  - `censor_state.py` — analytic censoring logic (value → zone, zone → SDTM fields)
-  - `biomarker_accessions.py` — entity type → accession resource table
-  - `record_set_to_sdtm.py` / `sdtm_to_record_set.py` — the SDTM conversions
+Open `references/sdtmig-v3.4.pdf` only when `sdtmig-guide.md` cannot answer the question, and only
+at the page its domain index (§2) lists. For the proposed BM domain the source of truth is
+`sdtmig-guide.md` §6 (copied from the gold xlsx), not the PDF.
 
-**The scripts never decide values.** There is no intermediate "input schema" to translate
-into — write the artifact directly from the template and the documents.
+## Missing values
 
-## Prerequisites
+The source documents will not supply everything. Apply one rule everywhere:
 
-- Python 3.10+ with `scripts/` and `assets/` on the Python path (or run from the `scripts/` directory)
-- `jsonschema` pip package recommended (optional — structural validation works without it)
-- Source documents: assay spec, patient data table, and demographics
+- **Strings:** leave `"PLACEHOLDER"`. **Numbers:** `null`. Never invent a value, never copy a value
+  from the example, and never use `0` as a stand-in.
+- **Converter-critical fields stop the run.** If any of these is missing, ask the user before Step 6
+  and do not convert until they answer: LoD, LLOQ and ULOQ; the reporting unit; the specimen type;
+  the condition; the BEST role; at least one evidence id.
+- **Everything else** is listed in the hand-over report (Step 7) as unfilled, grouped by file.
+- Documents carry names, not identifiers. Deriving an accession (Step 4) is not inventing a value;
+  guessing one is.
 
-## Workflow — Forward direction
+## Forward workflow: documents → record set → SDTM
 
-### Step 1: Ingest source documents
+### Step 1: Ingest
 
-Collect the information the user has:
+Collect, citing the document each value came from:
 
-- **Assay specification** — biomarker name, platform, manufacturer, LoD/LLOQ/ULOQ, reference limits (99th percentile), specimen type, LOINC code, units, sampling schedule, interpretation rules
-- **Patient data** — subject IDs, results per visit, collection times, units
-- **Demographics** — age, sex, country for each subject
+- **Assay specification:** analyte, assay name, manufacturer, platform, method, LoD/LLOQ/ULOQ,
+  reference limits, specimen, LOINC, unit, sampling schedule, decision rule
+- **Context of use:** condition, BEST role, asserting party and date, evidence citations
+- **Lab results:** subject, visit, specimen id, collection time, result, unit
+- **Demographics:** subject, site, age, sex, country, reference start date
 
-Documents carry **names, not identifiers**. Accessions (UniProt, DOID, …) are almost never
-present in clinical documents — derive them yourself (Step 4). If a value is genuinely absent
-from the documents, leave it `PLACEHOLDER`; do not invent values, and do not annotate the
-absence in the output.
+Lab files rarely use SDTM names. Map their columns to the fields above yourself, and record the
+mapping in the hand-over report.
 
-### Step 2: Write the tBCO (template BCO)
+### Step 2: Write the tBCO (one per assay)
 
-The tBCO encodes the _assay specification_ — one per biomarker per assay platform.
-
-Read `assets/tbco_template.json`, fill it from the documents, then finalize and validate:
+Fill `assets/tbco_template.json`. Keys starting with `//_` are guidance for you; keep them while
+drafting. Leave `etag` alone. Then:
 
 ```bash
 python scripts/finalize_draft.py --input tBCO.draft.json --output tBCO.json
 python scripts/validate_bco.py tBCO.json
 ```
 
-- Keep the `//_` guidance keys while you draft; finalize strips them.
-- Leave the `etag` alone — finalize computes it.
-- All 8 IEEE 2791 domains must survive plus the `assay_protocol_extension`.
-- Anything the documents don't supply stays `PLACEHOLDER`.
+Domains every BCO in this skill must carry:
+
+- **Required by IEEE 2791** (a missing one fails `validate_bco.py`): `provenance_domain`,
+  `usability_domain`, `description_domain`, `execution_domain`, `io_domain`, plus the root fields
+  `object_id`, `spec_version`, `etag`
+- **Optional in IEEE 2791 but required here** (a missing one is only a `NOTE:` line in the validator
+  output, so check for it yourself): `parametric_domain`, `error_domain`, `extension_domain`
+  holding `assay_protocol_extension` (tBCO) or `assay_run_extension` (rBCO)
 
 ### Step 3: Write one rBCO per patient
 
-The rBCO captures _what actually happened on the instrument_ for one patient. Same shape as
-Step 2: fill `assets/rbco_template.json`, finalize, validate.
+Fill `assets/rbco_template.json` for each subject; `provenance_domain.derived_from` is the tBCO
+`object_id`. Set each measurement's `censor_state` with the module, never by eye:
 
-Each measurement records a `censor_state` from the controlled vocabulary:
-
-- `below_lod` — value below limit of detection
-- `detected_below_lloq` — detected but below LLOQ
-- `quantifiable` — within quantifiable range (includes `measurable`)
-- `above_uloq` — above upper limit of quantification
-
-**Do not decide censor states by eye — call the module.** It encodes the tBCO thresholds and
-the SDTM field consequences:
-
-```python
-from censor_state import resolve_censor_state, make_sdtm_fields
-
-state = resolve_censor_state(value=0.021, lod=0.006, lloq=0.03, uloq=50.0)
-# Returns "detected_below_lloq"
+```bash
+PYTHONPATH=scripts python -c "from censor_state import resolve_censor_state as r; print(r(0.021, 0.006, 0.03, 50.0))"
+# detected_below_lloq
 ```
+
+`make_sdtm_fields(state, value, lod, lloq, uloq)` returns the matching LBORRES/LBSTRESN pair. The
+zone table is in `references/pitfalls.md` §1. Finalize and validate each rBCO as in Step 2.
 
 ### Step 4: Write the BMKB record
 
-The BMKB record describes the _biomarker knowledge_ — entity, condition, role — independently
-of any assay. It is the **provider-side submission schema**: a submitter must **not** emit
-BiomarkerKB-assigned fields (`biomarker_id`, `biomarker_canonical_id`, `*_md5`,
-`biomarker_id_new`, `source_list`) — BiomarkerKB assigns those on receipt.
+Fill `assets/bmkb_template.json`. Replace every value in it from the study documents; the
+pre-filled values are the troponin example, not defaults. It is a provider-side submission: never
+emit the fields BiomarkerKB assigns (`biomarker_id`, `biomarker_canonical_id`, `*_md5`,
+`biomarker_id_new`, `source_list`).
 
-Fill `assets/bmkb_template.json` and write `BMKB.json`. There is no etag, so no finalize step
-is needed — but validate the key set:
+- **Condition:** the study's condition from the context-of-use document; `id` is a DOID, MONDO,
+  SNOMED or NCIt CURIE; `name` lowercase; `resource` names the ontology.
+- **Role:** choose from the BEST definitions in `references/best-definitions.md` using the
+  context-of-use statement. List every role the document asserts.
+- **Entity:** pick `assessed_entity_type`, then get the accession resource:
+
+  ```bash
+  python scripts/biomarker_accessions.py      # prints entity type → resource chain
+  ```
+
+  Look the accession up in that resource; never guess it. Write the `biomarker` statement as
+  `{change} {aspect} of {entity_type} {symbol}/{entity_id}`, e.g.
+  `Increased level of protein TNNI3/UPKB:P19429` (rules: `references/bmkb-model.md` §6–7).
+- **Name cache:** add `"<accession exactly as in assessed_biomarker_entity_id>": "<entity name>"` to
+  `assets/entity_names.json`. Without it BM.BMENTNM comes out empty.
 
 ```bash
 python scripts/validate_bmkb.py BMKB.json
 ```
 
-Record shape:
+There is no etag, so no finalize step.
 
-```
-condition { id, name, resource }
-best_biomarker_role[] { role }
-biomarker_component[] { component_index, entity_index,
-                        assessed_biomarker_entity_id,
-                        assessed_entity_type, biomarker }
-entity_normal_ranges[]          # optional
-provenance { provider, author, date, description }
-```
-
-**Assigning accessions — do this before writing the record.** The clinical documents give
-_names_; the record needs _accessions_. The lookup table is available as code:
+### Step 5: Validation gate (before any conversion)
 
 ```bash
-python scripts/biomarker_accessions.py            # print the table
+python scripts/finalize_draft.py --check --input tBCO.json      # repeat for each rBCO
+python scripts/validate_bco.py tBCO.json rBCO_*.json
+python scripts/validate_bmkb.py BMKB.json
 ```
 
-```python
-from biomarker_accessions import accession_resource_for
-accession_resource_for("protein")   # -> "UniProt (UPKB)"
-```
+Fix every FAIL and every missing required-here domain, then run the gate again. Continue only when
+everything passes and every converter-critical field (see "Missing values") is filled.
 
-In order of preference (fall back only if the preferred resource has no entry):
+### Step 6: Convert the record set to SDTM
 
-- protein → UniProt (UPKB) → PDB → PRO → NCIt
-- peptide → PRO; protein complex → PRO → GO
-- gene → NCBI; gene (mutation) → NCBI dbSNP
-- DNA → NCIt; RNA → HGNC → RNA Central (RNAC); miRNA → miRBase (MRB)
-- glycan → GlyTouCan (GTC) → PubChem; carbohydrate → ChEBI
-- metabolite → PubChem (PCCID) → ChEBI; lipoprotein → ChEBI
-- chemical element → PubChem (PCCID) → NCIt; cell → CO → NCIt
+First check `references/sdtmig-guide.md` §2: if the biomarker's results belong in a domain other than
+LB (genomic → GF, cell phenotype → CP, drug concentration → PC, ...) or its role needs context
+domains (EX, AE, CE, ...), tell the user before converting. The converter writes only DM, LB, SUPPLB
+and BM.
 
-Rules:
-
-- `assessed_entity_type` is **lowercase**, from: `protein`, `gene`, `DNA`, `RNA`, `cell`,
-  `lipid`, `glycan`, `metabolite`, `element`, `image`, `condition`
-- **Condition** — id is a `DOID:`/`MONDO:`/`SNOMED:`/`NCIt:` CURIE; `name` is lowercase;
-  `resource` names the ontology. Use the **study context** condition (e.g. acute myocardial
-  infarction `DOID:5844`), never an example's condition.
-- **`biomarker`** statement follows `{change} {aspect} of {entity_type} {symbol}/{entity_id}`
-  (e.g. `Increased level of protein TNNI3/UPKB:P19429`). A bare entity name is not a biomarker.
-
-Full detail: `references/bmkb-model.md` §6–§7.
-
-**Record every accession you resolve.** The record carries the accession, but SDTM's BM domain
-also needs the entity *name* (`BM.BMENTNM`). Those pairs live in `assets/entity_names.json`,
-keyed by the accession exactly as it appears in `assessed_biomarker_entity_id`:
+Build the two input files from the lab results and demographics:
 
 ```json
-"UPKB:P19429": "Troponin I, cardiac muscle"
+{"results": [{"idvarval": 1, "lborres": "0.021", "lbstresc": "0.021", "lbstressn": 0.021, "visitnum": 1, "visit": "ADMISSION"}]}
 ```
-
-Add the pair each time you resolve an entity type to an accession. A missing entry means
-`BM.BMENTNM` comes out empty, and the conversion will fail on it.
-
-**Why a local cache rather than a live lookup.** Resolving an accession over the network from
-UniProt, CO or GlyTouCan would tie every run to an external service: its uptime, its rate
-limits, and whatever its data happens to say that day. Keeping the mapping local makes the
-conversion fully offline and deterministic, so the same documents produce the same BM row
-every time, with no network access required. The trade-off is that the cache is only as
-complete as what you add to it, which is why recording each pair matters.
-
-### Step 5: Convert the record set to SDTM
-
-```bash
-python scripts/record_set_to_sdtm.py \
-  --tbco tBCO.json \
-  --rbco rBCO_patient1.json \
-  --bmkb BMKB.json \
-  --results results.json \
-  --dm dm.json \
-  --evidence PMID:19710485 \
-  --output-dir ./sdtm
-```
-
-`--evidence` supplies the biomarker's evidence ids. The BMKB submission record carries no
-evidence — it comes from the study documents (context-of-use / protocol citations).
-
-The results JSON is an array of measurement events:
 
 ```json
-{"results": [
-  {"idvarval": 1, "lborres": "0.021", "lbstresc": "0.021", "lbstressn": 0.021, "visitnum": 1, "visit": "Baseline"},
-  ...
-]}
+{"dm": [{"usubjid": "BM-2026-01-001", "subjid": "001", "siteid": "01", "age": 67, "ageu": "YEARS", "sex": "M", "country": "DEU", "rfstdtc": "2026-03-15"}]}
 ```
 
-The DM JSON is demographics:
-
-```json
-{"dm": [
-  {"usubjid": "BM-2026-01-001", "age": 67, "sex": "M", "country": "DEU", ...}
-]}
-```
-
-Produces 4 TSV files:
-
-- `DM.tsv` — Demographics (age, sex, country)
-- `LB.tsv` — Lab results (values, units, LOINC, visit, specimen)
-- `SUPPLB.tsv` — Assay qualifiers (limits, assay name, platform, rBCO id, censor state)
-- `BM.tsv` — Biomarker context (entity, condition, assay ref, rule, tBCO ref)
-
-### Step 6: Finalize and validate
+`idvarval` matches the rBCO measurement's `idvarval`. Then:
 
 ```bash
-python scripts/finalize_draft.py --input tBCO.json            # in place
-python scripts/finalize_draft.py --input tBCO.json --check    # verify the etag
-python scripts/validate_bco.py tBCO.json rBCO_patient1.json
+python scripts/record_set_to_sdtm.py --tbco tBCO.json --rbco rBCO_patient1.json \
+  --bmkb BMKB.json --results results.json --dm dm.json \
+  --evidence PMID:19710485 --output-dir ./sdtm
 ```
 
-Exit code 0 = all valid. `validate_bco.py` checks:
+`--evidence` takes the citations from the context-of-use or protocol (comma-separated); the BMKB
+record carries none. Output: `DM.tsv`, `LB.tsv`, `SUPPLB.tsv`, `BM.tsv`.
 
-- All 8 BCO domains are present
-- The `etag` is a well-formed 64-char SHA-256 digest
-- No unfilled `PLACEHOLDER` strings (warns only)
-- Required fields are non-empty
-- `jsonschema` conformance when the library is installed
+### Step 7: Hand-over report
 
-`finalize_draft.py --check` additionally verifies the etag actually _matches the content_.
+Give the user, in this order:
 
-## Workflow — Reverse direction (SDTM → record set)
+1. Files written and validator results
+2. Unfilled fields (PLACEHOLDER or null), by file
+3. Column mapping used for the lab files (Step 1)
+4. Accessions resolved and where each was looked up
+5. Domains the study needs beyond DM/LB/SUPPLB/BM (Step 6 check), and that BM is a proposed domain
+6. Known deviations from SDTMIG in the converter output (`references/sdtmig-guide.md` §5: limits in
+   SUPPLB)
 
-```bash
-python scripts/sdtm_to_record_set.py \
-  --dm sdtm/DM.tsv \
-  --lb sdtm/LB.tsv \
-  --supplb sdtm/SUPPLB.tsv \
-  --bm sdtm/BM.tsv \
-  --output-dir ./reconstructed
-```
+## Reverse workflow: SDTM → record set
 
-Reconstructs tBCO, rBCO, and BMKB JSON from the four SDTM TSV files. The censor state is reverse-derived from `LBORRES` and the assay limits in `SUPPLB` using `censor_state.derive_censor_state_from_sdtm()`.
+1. Convert:
 
-**Round-trip** — the output should be semantically equivalent to the original record set. Structural diffs (template key alignment) are acceptable; semantic differences (condition, entity, measurement values) are not.
+   ```bash
+   python scripts/sdtm_to_record_set.py --dm sdtm/DM.tsv --lb sdtm/LB.tsv \
+     --supplb sdtm/SUPPLB.tsv --bm sdtm/BM.tsv --output-dir ./reconstructed
+   ```
+
+2. Finalize the reconstructed BCOs (`finalize_draft.py --input <file>`).
+3. Gate: run `validate_bco.py` on the BCOs and `validate_bmkb.py` on the BMKB record.
+4. If the original record set is available, compare it field by field. Differences in key order or
+   template layout are acceptable. Differences in condition, entity, role, limits, censor states or
+   measurement timing are errors.
+5. Report what could not be reconstructed (`references/sdtmig-guide.md` §7, last paragraph) and
+   every PLACEHOLDER left.
 
 ## Worked example: Troponin I
 
-The reference example lives in `examples/troponin_I/`:
+`examples/troponin_I/` holds human-validated outputs (`Troponin_I_tBCO.json`,
+`Troponin_I_patient1_rBCO.json`, `Troponin_I_biomarkerKB.json`, `Troponin_I_SDTM.xlsx`). Its inputs
+are the simulated documents in `fixtures/troponin_I/`. Match its shape, not its values:
+TnI-Ultra on ADVIA Centaur XP, LoD 0.006 / LLOQ 0.03 / ULOQ 50 ng/mL, 99th percentile 0.04 ng/mL,
+acute myocardial infarction (DOID:5844).
 
-- `Troponin_I_tBCO.json` — Template BCO (Siemens TnI-Ultra assay on ADVIA Centaur XP)
-- `Troponin_I_patient1_rBCO.json` — Run BCO for patient 1
-- `Troponin_I_biomarkerKB.json` — BMKB record for cardiac troponin I
-- `Troponin_I_SDTM.xlsx` — SDTM output (Definitions, DM, LB, SUPPLB, BM sheets)
-- `Troponin_I_readme.txt` — Package index with relationship diagram
+Never write into `examples/`. Put test output in a scratch directory or `fixtures/<name>/_output/`.
 
-Study it before authoring a new one — it is the shape to match.
-
-### What it models
-
-- **Analyte:** Cardiac troponin I (TNNI3, UniProtKB P19429)
-- **Assay:** TnI-Ultra on Siemens ADVIA Centaur XP
-- **Condition:** Acute myocardial infarction (DOID:5844)
-- **LoD:** 0.006 ng/mL · **LLOQ:** 0.03 ng/mL · **ULOQ:** 50 ng/mL
-- **99th percentile URL:** 0.04 ng/mL (interpretation: value > 0.04 ng/mL = elevated)
-- **Reference:** Keller T et al., N Engl J Med 2009;361:868-77 (PMID 19710485)
-
-### Reproducing / checking it
+## Checks
 
 ```bash
-# 1. Self-tests for the helper modules
-python scripts/finalize_draft.py --self-test
-python scripts/censor_state.py --self-test
-python scripts/biomarker_accessions.py --self-test
-
-# 2. Verify the gold BCOs are finalized and valid
-python scripts/finalize_draft.py --check --input examples/troponin_I/Troponin_I_tBCO.json
-python scripts/validate_bco.py examples/troponin_I/Troponin_I_tBCO.json \
-                              examples/troponin_I/Troponin_I_patient1_rBCO.json
-
-# 3. Record set → SDTM → record set (round trip)
-python scripts/record_set_to_sdtm.py --self-test
-python scripts/sdtm_to_record_set.py --self-test
+python scripts/run_checks.py     # every self-test plus a comparison against the gold example
 ```
 
-Test output belongs in a scratch/`_output/` directory — **never** in `examples/`, which holds
-only human-validated outputs.
+Exit code 0 means everything passed.
 
-## Troubleshooting
-
-### "The BCO fails validation"
-
-**Cause:** a domain section is missing, a required field is empty, or the etag is malformed.
-
-**Fix:** run `validate_bco.py` first — it reports which check failed.
-
-- Ensure all 8 domains are present (`provenance_domain`, `usability_domain`, `description_domain`, `execution_domain`, `parametric_domain`, `io_domain`, `error_domain`, plus the extension)
-- No required field should be `null` or `""`
-- Re-run `finalize_draft.py --input <file>` if you hand-edited the JSON
-
-### "etag mismatch"
-
-**Cause:** the content changed after the etag was computed (hand-edits, merges).
-
-**Fix:** `python scripts/finalize_draft.py --input <file>` — it recomputes the etag over the
-canonical JSON with the `etag` field cleared. Confirm with `--check`.
-
-### "Censor state not in controlled vocabulary"
-
-**Cause:** you used `BLQ`, `BLOQ`, `<LLOQ`, or another non-standard term.
-
-**Fix:** use only `below_lod`, `detected_below_lloq`, `quantifiable` (or `measurable`), `above_uloq`. Better: let `censor_state.resolve_censor_state()` decide.
-
-### "LBSTRESN should be null for censored value"
-
-**Cause:** a value below LoD or detected below LLOQ has a numeric standard result.
-
-**Fix:** only `quantifiable` values get a numeric `LBSTRESN`. `censor_state.make_sdtm_fields()` handles this.
-
-### "BM domain provenance code wrong"
-
-**Cause:** a BM column has the wrong provenance letter (T/R/K/N/S).
-
-**Fix:** consult `references/sdtmig-guide.md` §BM:
-
-- **T** = from tBCO (assay name, platform, method, specimen, BCO id, rule)
-- **K** = from BiomarkerKB (entity name/id/type, CV term, role, condition)
-- **N** = new/assigned (BMID, BMVER, source domain/var/value references)
-
-### "Wrong accession"
-
-**Cause:** an entity accession was emitted with the wrong resource, or the entity type wasn't mapped.
-
-**Fix:** use `biomarker_accessions.accession_resource_for(<type>)` and confirm the id resolves. Never guess an accession — look it up.
-
-### "BM.BMEVID is empty"
-
-**Cause:** the BMKB record carries no evidence (by design), and no evidence was supplied.
-
-**Fix:** pass `--evidence PMID:...` to `record_set_to_sdtm.py`, taken from the study documents.
-
-### "BM.BMENTNM is empty"
-
-**Cause:** the accession in the record has no entry in `assets/entity_names.json`. The BMKB
-record carries accessions rather than names, so the name has to be resolved from the cache.
-
-**Fix:** add the pair to `assets/entity_names.json`, keyed by the accession exactly as it
-appears in `assessed_biomarker_entity_id` (for example `"UPKB:P19429": "Troponin I, cardiac
-muscle"`), then re-run the conversion.
-
-### "jsonschema not available"
-
-**Fix:** `pip install jsonschema` for full schema conformance. Structural validation works without it.
-
----
-
-## File structure
+## Files
 
 ```
-biomarker-sdtm/
-├── SKILL.md              # this file — frontmatter + instructions
-├── README.md             # repo overview
-├── CHANGELOG.md          # change history
-├── references/           # docs + schemas loaded on demand (see references/README.md)
-│   ├── README.md            # index + naming & versioning convention
-│   ├── bmkb-model.md        # BiomarkerKB submission schema + accession lookup
-│   ├── sdtmig-guide.md      # SDTMIG v3.4 rules for DM, LB, SUPPLB, BM
-│   ├── best-definitions.md  # FDA-NIH BEST biomarker categories
-│   ├── bco-schema.md        # IEEE 2791 field spec (narrative)
-│   ├── pitfalls.md          # censoring, units, assays, BM, BMKB, SDTM
-│   ├── sdtmig-v3.4.pdf      # full SDTMIG v3.4 spec — consult when the summary isn't enough
-│   └── schemas/             # IEEE 2791 JSON Schemas (upstream filenames, cross-`$ref`ed)
-├── scripts/              # runtime helpers — the deterministic work
-│   ├── finalize_draft.py       # strip //_ annotations + compute/verify etag
-│   ├── validate_bco.py         # IEEE 2791 structural + schema validator
-│   ├── validate_bmkb.py        # BMKB submission-schema validator
-│   ├── biomarker_accessions.py # entity type → accession resource table
-│   ├── censor_state.py         # censoring logic (value→zone, zone→SDTM fields)
-│   ├── record_set_to_sdtm.py   # Forward: record set → 4 SDTM TSVs
-│   └── sdtm_to_record_set.py   # Reverse: 4 SDTM TSVs → record set
-├── assets/               # templates — you fill these
-│   ├── tbco_template.json
-│   ├── rbco_template.json
-│   ├── bmkb_template.json
-│   ├── bm_row_template.json
-│   └── entity_names.json
-├── examples/             # validated reference outputs (gold) + adjudication log
-└── fixtures/             # simulated input documents for testing
+SKILL.md                this file
+references/             read on demand (see "Route by task")
+  sdtmig-guide.md       SDTM domain index + DM, LB, SUPPLB, BM, reverse mapping
+  sdtmig-v3.4.pdf       full SDTMIG; open at the pages sdtmig-guide.md lists
+  bmkb-model.md         BiomarkerKB submission schema + accession rules
+  best-definitions.md   FDA-NIH BEST biomarker roles
+  bco-schema.md         IEEE 2791 field reference
+  pitfalls.md           censor zones, traps, troubleshooting
+  schemas/              IEEE 2791 JSON Schemas (used by validate_bco.py)
+scripts/                run, do not edit
+assets/                 templates you fill + entity_names.json cache
+examples/               validated gold outputs (read-only)
+fixtures/               simulated input documents
+README.md, CHANGELOG.md for human maintainers
 ```
-
-**Naming & versioning.** Kebab-case topic names for docs; `<thing>_template.json` for
-templates; upstream filenames for IEEE schemas (they `$ref` each other by bare filename).
-Every versioned artifact carries `version` + `status` + `updated` — see `references/README.md`.
-
-## Controlled vocabulary (censor states)
-
-- `below_lod` — value < LoD — `LBORRES` = `<0.006` — `LBSTRESN` = null
-- `detected_below_lloq` — LoD ≤ value < LLOQ — `<0.03` — null
-- `quantifiable` — LLOQ ≤ value ≤ ULOQ — `0.08` — `0.08`
-- `above_uloq` — value > ULOQ — `>0.30` — null

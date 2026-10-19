@@ -63,15 +63,14 @@ gold example — they are one unit.
 
 | Artifact | Version | Status | Updated | Notes |
 |---|---|---|---|---|
-| `bmkb-model.md` | 2.0.0 | current | 2026-10-15 | Rewritten to the provider-side submission schema |
-| `bco-schema.md` | 1.0.0 | current | 2026-10-13 | |
+| `bmkb-model.md` | 2.1.0 | current | 2026-10-19 | BM mapping moved to sdtmig-guide.md §6 |
+| `bco-schema.md` | 1.1.0 | current | 2026-10-19 | Contents list added |
 | `best-definitions.md` | 1.0.0 | current | 2026-10-13 | |
-| `sdtmig-guide.md` | 1.0.0 | current | 2026-10-13 | |
-| `pitfalls.md` | 1.0.0 | current | 2026-10-13 | |
+| `sdtmig-guide.md` | 2.0.0 | current | 2026-10-19 | Domain index with PDF pages; LB distilled from SDTMIG v3.4; BM copied from the gold xlsx |
+| `pitfalls.md` | 2.0.0 | current | 2026-10-19 | Holds the one censor-zone table and the troubleshooting table |
 | `schemas/2791object.json` | upstream | current | 2026-10-13 | IEEE 2791 root schema |
 | `sdtmig-v3.4.pdf` | 3.4 | current | 2026-10-15 | Full spec; upstream name `SDTMIG v3.4-FINAL_2022-07-21.pdf` |
 | `assets/bmkb_template.json` | 2.0.0 | current | 2026-10-15 | Matches bmkb-model.md v2 |
 | `assets/entity_names.json` | 1.0.0 | current | 2026-10-15 | Accession→name resolution cache (BM.BMENTNM) |
-| `assets/tbco_template.json` | 1.0.0 | current | 2026-10-13 | |
-| `assets/rbco_template.json` | 1.0.0 | current | 2026-10-13 | |
-| `assets/bm_row_template.json` | 1.0.0 | current | 2026-10-13 | |
+| `assets/tbco_template.json` | 1.1.0 | current | 2026-10-19 | Unknown numbers are null |
+| `assets/rbco_template.json` | 1.1.0 | current | 2026-10-19 | censor_state no longer pre-filled |
