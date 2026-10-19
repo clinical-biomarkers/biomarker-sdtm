@@ -1,35 +1,30 @@
 #!/usr/bin/env python3
-"""censor_state.py — Censoring logic for biomarker measurements.
+"""censor_state.py — censor zones for biomarker measurements.
 
-Used by both the forward (record set → SDTM) and reverse (SDTM → record set)
-transforms.  A standalone, importable module.
+Decides which of the four zones a value falls in, and the LBORRES / LBSTRESN
+pair each zone produces. Used by both converters. The zone table itself is
+documented once, in references/pitfalls.md §1.
 
-Four censoring zones (BEST-aligned, from the Troponin I example):
-
-    below_lod           value < LoD
-    detected_below_lloq LoD ≤ value < LLOQ
-    quantifiable        LLOQ ≤ value ≤ ULOQ
-    above_uloq          value > ULOQ
+Policy (owner decision B02): a result detected below the LLOQ keeps its
+numeric value; only results below the LoD or above the ULOQ are reported as
+an operator plus limit with a null LBSTRESN.
 
 Usage
 -----
     from censor_state import resolve_censor_state, make_sdtm_fields
 
-    state = resolve_censor_state(0.021, 0.006, 0.03, 50.0)
-    lborres, lbstressn = make_sdtm_fields(state, 0.021, 0.006, 0.03, 50.0)
+    state = resolve_censor_state(0.021, 0.006, 0.03, 50.0)   # detected_below_lloq
+    lborres, lbstresn = make_sdtm_fields(state, 0.021, 0.006, 0.03, 50.0)
 
-Run self-test:
-    python censor_state.py
+    python scripts/censor_state.py --self-test
 """
 
 from __future__ import annotations
 
+import math
 import re
+import sys
 from typing import Optional
-
-# ---------------------------------------------------------------------------
-# Controlled vocabulary
-# ---------------------------------------------------------------------------
 
 CENSOR_STATES = frozenset({
     "below_lod",
@@ -38,72 +33,62 @@ CENSOR_STATES = frozenset({
     "above_uloq",
 })
 
-CENSOR_EXPLANATIONS = {
-    "below_lod": "Value below the limit of detection",
-    "detected_below_lloq": "Detected but below the lower limit of quantification",
-    "quantifiable": "Within the quantifiable range",
-    "above_uloq": "Above the upper limit of quantification",
-}
-
 #: Accepted synonyms, normalised to the canonical vocabulary.
 CENSOR_STATE_ALIASES = {"measurable": "quantifiable"}
 
+#: Zones reported as operator + limit, with LBSTRESN null.
+CENSORED_TO_BOUND = {"below_lod": ("<", "lod"), "above_uloq": (">", "uloq")}
+
+_NUM = r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?"
+_BOUND_RE = re.compile(rf"^\s*([<>])\s*=?\s*({_NUM})\s*$")
+
+
+def fmt_number(v: float) -> str:
+    """Render a number the way a lab reports it: 50.0 -> '50', 0.006 -> '0.006'."""
+    return format(v, "g") if isinstance(v, float) else str(v)
+
 
 def normalise_censor_state(censor_state: str) -> str:
-    """Map an accepted synonym to its canonical state; reject anything unknown.
-
-    A censored value must never be mistaken for a quantifiable one: silently
-    passing an unrecognised state through would emit a numeric LBSTRESN for a
-    censored result, which is invalid SDTM.
-    """
+    """Map an accepted synonym to its canonical state; reject anything unknown."""
     canonical = CENSOR_STATE_ALIASES.get(censor_state, censor_state)
     if canonical not in CENSOR_STATES:
         raise ValueError(
             f"unknown censor state {censor_state!r}; expected one of "
-            f"{sorted(CENSOR_STATES)} (or the synonym "
-            f"{sorted(CENSOR_STATE_ALIASES)})"
+            f"{sorted(CENSOR_STATES)} (or the synonym {sorted(CENSOR_STATE_ALIASES)})"
         )
     return canonical
 
-# ---------------------------------------------------------------------------
-# Public API — Forward direction
-# ---------------------------------------------------------------------------
 
-
-def resolve_censor_state(
-    value: float,
-    lod: float,
-    lloq: float,
-    uloq: float,
-) -> str:
-    """Determine the censoring zone for a measured value.
-
-    Parameters
-    ----------
-    value : float
-        The measured numeric concentration.
-    lod, lloq, uloq : float
-        Assay analytical-performance thresholds from the tBCO.
-
-    Returns
-    -------
-    str
-        One of ``CENSOR_STATES``.
-
-    Raises
-    ------
-    ValueError
-        If any threshold is missing (NaN or None-like).
-    """
-    missing = [n for n, v in (("LoD", lod), ("LLOQ", lloq), ("ULOQ", uloq))
-               if v is None]
+def check_limits(lod: Optional[float], lloq: Optional[float],
+                 uloq: Optional[float]) -> None:
+    """Raise ValueError unless LoD, LLOQ and ULOQ are present, finite and ordered."""
+    named = (("LoD", lod), ("LLOQ", lloq), ("ULOQ", uloq))
+    missing = [n for n, v in named if v is None]
     if missing:
         raise ValueError(
-            f"cannot resolve a censor state: tBCO analytical_performance "
-            f"{', '.join(missing)} is null. All three thresholds (LoD, LLOQ, "
-            f"ULOQ) are required."
+            f"tBCO analytical_performance {', '.join(missing)} is null; all three "
+            f"thresholds (LoD, LLOQ, ULOQ) are needed to resolve a censor state"
         )
+    bad = [n for n, v in named if not isinstance(v, (int, float)) or not math.isfinite(v)]
+    if bad:
+        raise ValueError(f"tBCO analytical_performance {', '.join(bad)} is not a finite number")
+    if uloq <= 0:
+        raise ValueError(f"ULOQ is {uloq}; a non-positive ULOQ is an unfilled placeholder, "
+                         f"not a real limit")
+    if not (lod <= lloq <= uloq):
+        raise ValueError(f"limits out of order: LoD {lod}, LLOQ {lloq}, ULOQ {uloq} "
+                         f"(expected LoD <= LLOQ <= ULOQ)")
 
+
+# ---------------------------------------------------------------------------
+# Forward direction
+# ---------------------------------------------------------------------------
+
+def resolve_censor_state(value: float, lod: float, lloq: float, uloq: float) -> str:
+    """The censor zone of a measured *value* against the tBCO limits."""
+    check_limits(lod, lloq, uloq)
+    if value is None or not isinstance(value, (int, float)) or not math.isfinite(value):
+        raise ValueError(f"cannot resolve a censor state for value {value!r}")
     if value < lod:
         return "below_lod"
     if value < lloq:
@@ -113,214 +98,156 @@ def resolve_censor_state(
     return "quantifiable"
 
 
-def make_sdtm_fields(
-    censor_state: str,
-    value: float,
-    lod: float,
-    lloq: float,
-    uloq: float,
-) -> tuple[str, Optional[float]]:
-    """Produce the LBORRES / LBSTRESN pair from a censor state and value.
+def make_sdtm_fields(censor_state: str, value: Optional[float], lod: Optional[float],
+                     lloq: Optional[float], uloq: Optional[float]) -> tuple[str, Optional[float]]:
+    """The (LBORRES, LBSTRESN) pair for a censor state.
 
-    Returns
-    -------
-    (lborres, lbstressn)
-        ``lborres`` is a string (e.g. ``"<0.006"``, ``"0.021"``).
-        ``lbstressn`` is the numeric value or ``None`` for censored results.
+    ``below_lod`` and ``above_uloq`` give ``"<LoD"`` / ``">ULOQ"`` and null.
+    ``detected_below_lloq`` and ``quantifiable`` give the value itself; with no
+    value, ``detected_below_lloq`` falls back to ``"<LLOQ"`` and null.
     """
     censor_state = normalise_censor_state(censor_state)
+    limits = {"lod": lod, "lloq": lloq, "uloq": uloq}
 
-    bound = {"below_lod": ("LoD", lod), "detected_below_lloq": ("LLOQ", lloq),
-             "above_uloq": ("ULOQ", uloq)}.get(censor_state)
-    if bound and bound[1] is None:
-        raise ValueError(
-            f"censor state {censor_state!r} needs the {bound[0]}, which is null "
-            f"in the tBCO analytical_performance"
-        )
+    if censor_state in CENSORED_TO_BOUND:
+        op, key = CENSORED_TO_BOUND[censor_state]
+        if limits[key] is None:
+            raise ValueError(f"censor state {censor_state!r} needs the {key.upper()}, "
+                             f"which is null in the tBCO analytical_performance")
+        return (f"{op}{fmt_number(limits[key])}", None)
 
-    if censor_state == "below_lod":
-        return (f"<{lod}", None)
+    if value is not None:
+        return (fmt_number(value), value)
     if censor_state == "detected_below_lloq":
-        return (f"<{lloq}", None)
-    if censor_state == "above_uloq":
-        return (f">{uloq}", None)
-
-    # quantifiable
-    return (str(value), value)
+        if lloq is None:
+            raise ValueError("detected_below_lloq with no value needs the LLOQ, which is null")
+        return (f"<{fmt_number(lloq)}", None)
+    raise ValueError("a quantifiable result needs a value")
 
 
-# ---------------------------------------------------------------------------
-# Public API — Reverse direction (SDTM → record set)
-# ---------------------------------------------------------------------------
+def parse_reported(raw: str) -> tuple[Optional[str], Optional[float]]:
+    """Split a result as reported: '<0.006' -> ('<', 0.006); '0.021' -> (None, 0.021).
 
-
-def derive_censor_state_from_sdtm(
-    lborres: str,
-    lbstressn_str: str,
-    lod: Optional[float] = None,
-    lloq: Optional[float] = None,
-    uloq: Optional[float] = None,
-) -> str:
-    """Infer censor_state from SDTM LB fields (reverse transform).
-
-    Heuristic (used by ``sdtm_to_record_set.py`` when SUPPLB has no CENSOR):
-
-    1. If LBSTRESN is populated → check thresholds (quantifiable / above_uloq).
-    2. If LBSTRESN is empty → examine LBORRES pattern (``<N``, ``>N``, text).
-    3. Fallback: try to parse LBORRES as a number.
-
-    Parameters
-    ----------
-    lborres : str
-        Original result (e.g. ``"0.021"``, ``"<0.006"``).
-    lbstressn_str : str
-        Numeric result as a string (may be empty).
-    lod, lloq, uloq : float or None
-        Analytical thresholds (optional; improve accuracy when provided).
-
-    Returns
-    -------
-    str
-        One of ``CENSOR_STATES``.
+    Returns (None, None) for text that is neither a number nor a bound.
     """
-    lbstressn: Optional[float] = None
-    if lbstressn_str:
+    raw = (raw or "").strip()
+    m = _BOUND_RE.match(raw)
+    if m:
+        return m.group(1), float(m.group(2))
+    try:
+        return None, float(raw)
+    except ValueError:
+        return None, None
+
+
+# ---------------------------------------------------------------------------
+# Reverse direction (SDTM → record set)
+# ---------------------------------------------------------------------------
+
+def derive_censor_state_from_sdtm(lborres: str, lbstresn_str: str,
+                                  lod: Optional[float] = None, lloq: Optional[float] = None,
+                                  uloq: Optional[float] = None) -> str:
+    """Infer the censor state from LB fields when SUPPLB carries no CENSOR row."""
+    value: Optional[float] = None
+    if lbstresn_str not in (None, ""):
         try:
-            lbstressn = float(lbstressn_str)
+            value = float(lbstresn_str)
         except ValueError:
-            pass
-
-    # --- LBSTRESN is populated → numeric value exists ---
-    if lbstressn is not None:
-        if uloq is not None and lbstressn > uloq:
+            value = None
+    if value is None:
+        op, value_from_orres = parse_reported(lborres)
+        if op == ">":
             return "above_uloq"
-        if lloq is not None and lbstressn >= lloq:
-            return "quantifiable"
-        return "detected_below_lloq"
-
-    # --- LBSTRESN is empty → examine LBORRES ---
-    if lborres.startswith("<"):
-        m = re.match(r"<([\d.]+)", lborres)
-        if m:
-            val = float(m.group(1))
-            if lod is not None and val <= lod:
+        if op == "<":
+            if lod is not None and value_from_orres is not None and value_from_orres <= lod:
+                return "below_lod"
+            if lod is None and lloq is None and "lod" in (lborres or "").lower():
                 return "below_lod"
             return "detected_below_lloq"
-        if "lod" in lborres.lower():
-            return "below_lod"
-        return "detected_below_lloq"
+        value = value_from_orres
+        if value is None:
+            return "below_lod" if "lod" in (lborres or "").lower() else "detected_below_lloq"
 
-    if lborres.startswith(">"):
+    if lod is not None and value < lod:
+        return "below_lod"
+    if lloq is not None and value < lloq:
+        return "detected_below_lloq"
+    if uloq is not None and value > uloq:
         return "above_uloq"
-
-    # Fallback — try parsing as a number
-    try:
-        float(lborres)
-        return "quantifiable"
-    except ValueError:
-        return "detected_below_lloq"
+    return "quantifiable"
 
 
 # ---------------------------------------------------------------------------
 # Self-test
 # ---------------------------------------------------------------------------
 
-def _self_test() -> None:
-    """Exercise all four censoring zones in both directions."""
-    print("=" * 60)
-    print("  censor_state.py — Self-test")
-    print("=" * 60)
-
+def _self_test() -> int:
     errors: list[str] = []
+    LOD, LLOQ, ULOQ = 0.006, 0.03, 50.0
 
-    # Troponin I reference thresholds
-    LOD = 0.006
-    LLOQ = 0.03
-    ULOQ = 50.0
-
-    test_cases = [
-        # (value, expected_state, expected_lborres_starts)
-        (0.004, "below_lod", "<0.006"),
-        (0.021, "detected_below_lloq", "<0.03"),
-        (0.058, "quantifiable", "0.058"),
-        (100.0, "above_uloq", ">50.0"),
-        (0.03, "quantifiable", "0.03"),  # boundary: == LLOQ
-        (50.0, "quantifiable", "50.0"),   # boundary: == ULOQ
+    forward = [
+        # value, state, LBORRES, LBSTRESN
+        (0.004, "below_lod", "<0.006", None),
+        (0.021, "detected_below_lloq", "0.021", 0.021),   # B02: keeps its value
+        (0.03, "quantifiable", "0.03", 0.03),              # == LLOQ
+        (0.058, "quantifiable", "0.058", 0.058),
+        (50.0, "quantifiable", "50", 50.0),                # == ULOQ
+        (100.0, "above_uloq", ">50", None),
     ]
+    for value, state, orres, stresn in forward:
+        got = resolve_censor_state(value, LOD, LLOQ, ULOQ)
+        if got != state:
+            errors.append(f"resolve({value}) = {got}, expected {state}")
+        pair = make_sdtm_fields(state, value, LOD, LLOQ, ULOQ)
+        if pair != (orres, stresn):
+            errors.append(f"make_sdtm_fields({state}, {value}) = {pair}, expected {(orres, stresn)}")
 
-    # --- Forward test ---
-    for value, expected_state, expected_lborres_start in test_cases:
-        state = resolve_censor_state(value, LOD, LLOQ, ULOQ)
-        if state != expected_state:
-            errors.append(
-                f"resolve({value}): got '{state}', expected '{expected_state}'"
-            )
+    if make_sdtm_fields("detected_below_lloq", None, LOD, LLOQ, ULOQ) != ("<0.03", None):
+        errors.append("detected_below_lloq with no value should give '<LLOQ'")
+    if make_sdtm_fields("measurable", 1.0, LOD, LLOQ, ULOQ) != ("1", 1.0):
+        errors.append("synonym 'measurable' not accepted")
 
-        lborres, lbstressn = make_sdtm_fields(state, value, LOD, LLOQ, ULOQ)
-        if not lborres.startswith(expected_lborres_start):
-            errors.append(
-                f"make_sdtm_fields('{state}', {value}): "
-                f"got LBORRES='{lborres}', expected starts with '{expected_lborres_start}'"
-            )
-
-        # Check null LBSTRESN for censored states
-        if state in ("below_lod", "detected_below_lloq", "above_uloq"):
-            if lbstressn is not None:
-                errors.append(
-                    f"make_sdtm_fields('{state}', {value}): "
-                    f"LBSTRESN should be None, got {lbstressn}"
-                )
-        else:
-            if lbstressn is None:
-                errors.append(
-                    f"make_sdtm_fields('{state}', {value}): "
-                    f"LBSTRESN should not be None"
-                )
-
-    # --- Reverse test ---
-    reverse_cases = [
-        ("<0.006", "", LOD, LLOQ, ULOQ, "below_lod"),
-        ("<0.03", "", LOD, LLOQ, ULOQ, "detected_below_lloq"),
-        ("0.058", "0.058", LOD, LLOQ, ULOQ, "quantifiable"),
-        (">50", "", LOD, LLOQ, ULOQ, "above_uloq"),
-        # Without thresholds, fallback logic rounds conservatively
-        ("<0.006", "", None, None, None, "detected_below_lloq"),
-        ("<0.03", "", None, None, None, "detected_below_lloq"),
+    must_raise = [
+        ("unknown state", lambda: make_sdtm_fields("not_detected", 1.0, LOD, LLOQ, ULOQ)),
+        ("null limit", lambda: resolve_censor_state(1.0, None, LLOQ, ULOQ)),
+        ("NaN value", lambda: resolve_censor_state(float("nan"), LOD, LLOQ, ULOQ)),
+        ("NaN limit", lambda: resolve_censor_state(1.0, float("nan"), LLOQ, ULOQ)),
+        ("unordered limits", lambda: resolve_censor_state(1.0, 0.05, 0.03, 50.0)),
+        ("0.0 placeholders", lambda: resolve_censor_state(0.01, 0.0, 0.0, 0.0)),
+        ("below_lod, null LoD", lambda: make_sdtm_fields("below_lod", None, None, LLOQ, ULOQ)),
     ]
-
-    for lborres, lbstressn_str, lod, lloq, uloq, expected_state in reverse_cases:
-        state = derive_censor_state_from_sdtm(lborres, lbstressn_str, lod, lloq, uloq)
-        if state != expected_state:
-            errors.append(
-                f"derive({lborres!r}, {lbstressn_str!r}): "
-                f"got '{state}', expected '{expected_state}'"
-            )
-
-    # --- Null thresholds (template numbers are null until filled) ---
-    for call in (lambda: resolve_censor_state(0.02, None, LLOQ, ULOQ),
-                 lambda: make_sdtm_fields("below_lod", 0.004, None, LLOQ, ULOQ)):
+    for label, fn in must_raise:
         try:
-            call()
-            errors.append("null threshold did not raise ValueError")
+            fn()
+            errors.append(f"should raise: {label}")
         except ValueError:
             pass
-    if make_sdtm_fields("quantifiable", 0.058, None, None, None) != ("0.058", 0.058):
-        errors.append("quantifiable result should not need the thresholds")
 
-    # --- Report ---
+    reverse = [
+        ("<0.006", "", LOD, LLOQ, ULOQ, "below_lod"),
+        ("< 0.006", "", LOD, LLOQ, ULOQ, "below_lod"),
+        ("<6e-3", "", LOD, LLOQ, ULOQ, "below_lod"),
+        ("<0.03", "", LOD, LLOQ, ULOQ, "detected_below_lloq"),
+        ("0.021", "0.021", LOD, LLOQ, ULOQ, "detected_below_lloq"),
+        ("0.004", "0.004", LOD, LLOQ, ULOQ, "below_lod"),
+        ("0.058", "0.058", LOD, LLOQ, ULOQ, "quantifiable"),
+        (">50", "", LOD, LLOQ, ULOQ, "above_uloq"),
+        ("0.058", "", None, None, None, "quantifiable"),
+    ]
+    for orres, stresn, lod, lloq, uloq, expected in reverse:
+        got = derive_censor_state_from_sdtm(orres, stresn, lod, lloq, uloq)
+        if got != expected:
+            errors.append(f"derive({orres!r}, {stresn!r}) = {got}, expected {expected}")
+
     if errors:
-        print("\nFAILED:")
+        print("[SELF-TEST] FAILED:")
         for e in errors:
             print(f"  - {e}")
-        print(f"\n{len(errors)} error(s)")
-        import sys
-        sys.exit(1)
-
-    print(f"\n  All {len(test_cases) + len(reverse_cases) + 3} checks PASSED")
-    print("  Censor states: below_lod, detected_below_lloq, quantifiable, above_uloq")
-    print("  Both forward and reverse directions verified.")
-    print("=" * 60)
+        return 1
+    n = len(forward) * 2 + 2 + len(must_raise) + len(reverse)
+    print(f"[SELF-TEST] PASSED — {n} checks (forward, guards, reverse)")
+    return 0
 
 
 if __name__ == "__main__":
-    _self_test()
+    sys.exit(_self_test())

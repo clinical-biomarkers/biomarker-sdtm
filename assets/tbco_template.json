@@ -5,16 +5,12 @@
   "//_missing_values_help": "Unknown strings stay PLACEHOLDER; unknown numbers stay null (never 0). LoD, LLOQ, ULOQ, unit and specimen type are required before SDTM conversion: ask the user if the documents lack them.",
   "//_note_3": "Reference: examples/troponin_I/Troponin_I_tBCO.json, references/bco-schema.md",
   "//_note_4": "===================================================================================",
-
   "object_id": "https://biocomputeobject.org/PLACEHOLDER_<BIOMARKER_ASSAY>/1.0.0",
   "//_object_id_help": "Unique, never-reused URI. Pattern: https://biocomputeobject.org/PLACEHOLDER_<assay_short_name>/<semver>",
-
   "spec_version": "https://w3id.org/ieee/ieee-2791-schema/2791object.json",
   "//_spec_version_help": "Pin to the IEEE 2791 schema URI (read-only). Use latest available.",
-
   "etag": "PLACEHOLDER - SHA-256 hex digest of this JSON object",
   "//_etag_help": "SHA-256 hex digest. Compute programmatically after the object is fully populated.",
-
   "provenance_domain": {
     "name": "PLACEHOLDER - Assay standard for <BIOMARKER_NAME> (<ASSAY_NAME>, <PLATFORM>)",
     "version": "1.0.0",
@@ -25,13 +21,18 @@
       {
         "name": "PLACEHOLDER - Creator name",
         "affiliation": "PLACEHOLDER - Institution",
-        "contribution": ["createdBy", "authoredBy"],
+        "contribution": [
+          "createdBy",
+          "authoredBy"
+        ],
         "email": "PLACEHOLDER@institution.edu"
       },
       {
         "name": "PLACEHOLDER - Reviewer name",
         "affiliation": "PLACEHOLDER - Institution",
-        "contribution": ["contributedBy"],
+        "contribution": [
+          "contributedBy"
+        ],
         "email": "PLACEHOLDER@institution.edu"
       }
     ],
@@ -43,38 +44,38 @@
         "reviewer": {
           "name": "PLACEHOLDER - Reviewer name",
           "affiliation": "PLACEHOLDER - Institution",
-          "contribution": ["curatedBy"],
+          "contribution": [
+            "curatedBy"
+          ],
           "email": "PLACEHOLDER@institution.edu"
         }
       }
     ]
   },
-
   "usability_domain": [
     "PLACEHOLDER - One-line description of the assay standard (e.g., 'Assay standard for cardiac troponin I (TnI-Ultra, ADVIA Centaur XP).')",
     "PLACEHOLDER - What a tBCO is: 'Template BCO (tBCO): the specification for measuring one biomarker with one assay. States what is to be detected, how it is to be detected, the analytical limits within which a result is valid, when specimens are to be collected, and how a measured value is turned into a finding.'",
     "PLACEHOLDER - Analytical values source attribution. Cite the study/paper/IFU providing performance data. Mark PLACEHOLDER fields for values not stated in available sources."
   ],
-
   "extension_domain": [
     {
       "extension_schema": "PLACEHOLDER - https://<org>/biocompute/extension_domain/1.0.0/assay_protocol/assay_protocol_extension.json",
       "//_extension_schema_help": "URI pointing to the JSON Schema for the assay protocol extension. PLACEHOLDER until the schema is published.",
-
       "assay_protocol_extension": {
         "spec_id": "PLACEHOLDER - e.g., TNNI3_TNIULTRA (short: BIOMARKERGENE_ASSAYNAME)",
         "spec_version": "1.0.0",
         "//_spec_version_help": "Same as top-level provenance version. Bump when assay specification changes (e.g., new calibration, new reagent formulation).",
-
         "target": {
           "analyte_name": "PLACEHOLDER - Full analyte name (e.g., 'Troponin I, cardiac muscle')",
+          "lbtestcd": "PLACEHOLDER - CDISC CT LBTESTCD for the analyte (e.g., TROPONI3)",
+          "lbtest": "PLACEHOLDER - CDISC CT LBTEST paired with lbtestcd (e.g., Troponin I Type 3)",
+          "//_analyte_identifiers_help": "CURIEs looked up through the OLS MCP server (e.g. PR_P19429 -> UPKB:P19429). Leave PLACEHOLDER if OLS has no entry.",
           "analyte_identifiers": [
             {
-              "namespace": "PLACEHOLDER - e.g., UniProtKB, HGNC, CHEBI",
-              "accession": "PLACEHOLDER - e.g., P19429"
+              "curie": "PLACEHOLDER - e.g., UPKB:P19429"
             }
           ],
-          "entity_type": "PLACEHOLDER - protein | gene | metabolite | variant",
+          "entity_type": "PLACEHOLDER - protein | gene | dna | rna | cell | lipid | glycan | metabolite | element | image | condition (lowercase; run scripts/biomarker_accessions.py)",
           "measured_property": "PLACEHOLDER - e.g., mass concentration, activity, molar concentration",
           "matrix": {
             "term": "PLACEHOLDER - e.g., blood, serum, plasma, urine, CSF",
@@ -82,7 +83,6 @@
           },
           "detects": "PLACEHOLDER - What an abnormal value means biologically. (e.g., 'Release of cardiac troponin I into the circulation following myocyte injury. An increase above the reference limit is the finding.')"
         },
-
         "assay": {
           "assay_name": "PLACEHOLDER - e.g., TnI-Ultra",
           "manufacturer": "PLACEHOLDER - e.g., Siemens Healthcare Diagnostics",
@@ -93,7 +93,6 @@
           "calibration_traceability": "PLACEHOLDER - Traceability to reference standard or manufacturer calibrator lineage. Note any lack of certified reference material.",
           "loinc_code": "PLACEHOLDER - LOINC code for this assay (e.g., 10839-9). Leave empty if unknown."
         },
-
         "specimen_requirements": {
           "specimen_type": "PLACEHOLDER - e.g., BLOOD (serum vs plasma if known; mark as PLACEHOLDER if not stated)",
           "specimen_curie": "PLACEHOLDER - UBERON CURIE (e.g., UBERON:0000178)",
@@ -102,7 +101,6 @@
           "handling": "PLACEHOLDER - centrifugation speed, time, temperature requirements",
           "stability": "PLACEHOLDER - time and temperature limits from collection to assay"
         },
-
         "subject_preconditions": [
           {
             "condition": "PLACEHOLDER - e.g., 'time of symptom onset recorded'",
@@ -111,7 +109,6 @@
           }
         ],
         "//_subject_preconditions_help": "Array of preconditions for specimen collection. Expand with additional entries as needed.",
-
         "sampling_schedule": {
           "anchor": "PLACEHOLDER - e.g., hospital admission, symptom onset, study baseline",
           "serial_required": true,
@@ -129,7 +126,6 @@
           ],
           "rationale": "PLACEHOLDER - why serial is needed (e.g., 'a single admission value cannot distinguish acute release from chronic elevation; the rise or fall across serial samples is part of the finding')"
         },
-
         "analytical_performance": {
           "limit_of_blank": {
             "value": null,
@@ -167,7 +163,6 @@
             "PLACEHOLDER - interference thresholds from IFU if available"
           ]
         },
-
         "reference_limits": [
           {
             "type": "PLACEHOLDER - 99th percentile | upper reference limit | decision limit | etc.",
@@ -181,7 +176,6 @@
             }
           }
         ],
-
         "derived_quantities": [
           {
             "name": "PLACEHOLDER - e.g., relative change, absolute change, ratio, AUC",
@@ -192,7 +186,6 @@
             ]
           }
         ],
-
         "interpretation_rules": [
           {
             "rule_id": "R1",
@@ -205,10 +198,11 @@
                 "value": "PLACEHOLDER or numerical value",
                 "tunable": true
               }
-            ]
+            ],
+            "role": "PLACEHOLDER - the BEST role this rule supports (diagnostic, prognostic, ...)",
+            "display": "PLACEHOLDER - the rule with values filled in, e.g. 'Value > 0.04 ng/mL AND rise or fall >= 30% within 6 h'"
           }
         ],
-
         "repeat_criteria": [
           {
             "trigger": "PLACEHOLDER - condition triggering a repeat",
@@ -216,16 +210,15 @@
             "rationale": "PLACEHOLDER - evidence basis"
           }
         ],
-
         "reporting_convention": {
           "unit": "PLACEHOLDER",
           "decimal_places": null,
-          "censoring": "PLACEHOLDER - e.g., 'values below the limit of quantitation are reported as <LLOQ and excluded from numeric summaries'"
-        }
+          "censoring": "PLACEHOLDER - e.g., values below the limit of detection are reported as '<LoD' with no numeric result; values between the LoD and the LLOQ keep their numeric value and are flagged detected_below_lloq; values above the ULOQ are reported as '>ULOQ'"
+        },
+        "//_interpretation_rules_help": "One rule per claim. 'role' ties the rule to a BEST role in the BMKB record; 'display' becomes BM.BMRULE."
       }
     }
   ],
-
   "description_domain": {
     "keywords": [
       "PLACEHOLDER - analyte name (e.g., cardiac troponin I)",
@@ -238,19 +231,25 @@
       {
         "namespace": "PLACEHOLDER - e.g., uniprot",
         "name": "PLACEHOLDER - e.g., UniProtKB",
-        "ids": ["PLACEHOLDER - e.g., P19429"],
+        "ids": [
+          "PLACEHOLDER - e.g., P19429"
+        ],
         "access_time": "PLACEHOLDER - ISO 8601 datetime"
       },
       {
         "namespace": "PLACEHOLDER - e.g., loinc",
         "name": "PLACEHOLDER - e.g., LOINC",
-        "ids": ["PLACEHOLDER - LOINC code"],
+        "ids": [
+          "PLACEHOLDER - LOINC code"
+        ],
         "access_time": "PLACEHOLDER"
       },
       {
         "namespace": "PLACEHOLDER - e.g., pubmed",
         "name": "PLACEHOLDER - e.g., PubMed",
-        "ids": ["PLACEHOLDER - PMID"],
+        "ids": [
+          "PLACEHOLDER - PMID"
+        ],
         "access_time": "PLACEHOLDER"
       }
     ],
@@ -336,7 +335,6 @@
       }
     ]
   },
-
   "execution_domain": {
     "script": [
       {
@@ -360,32 +358,21 @@
     "external_data_endpoints": [],
     "environment_variables": {}
   },
-
   "parametric_domain": [
     {
       "param": "PLACEHOLDER - parameter name (e.g., applied_reference_limit_type)",
       "value": "PLACEHOLDER - e.g., 99th percentile",
-      "unit": "",
-      "step": "classify"
+      "step": "PLACEHOLDER - step_number of the pipeline step that uses it, e.g. 4"
     },
     {
       "param": "PLACEHOLDER - e.g., relative_change_threshold_pct",
-      "value": "PLACEHOLDER - e.g., 30",
-      "unit": "PLACEHOLDER - e.g., %",
-      "step": "classify"
-    },
-    {
-      "param": "below_lloq_handling",
-      "value": "PLACEHOLDER - e.g., values below LoQ are reported as <LLOQ and excluded from numeric summaries",
-      "unit": "",
-      "step": "classify"
+      "value": "PLACEHOLDER - value with unit, e.g. 30 %",
+      "step": "PLACEHOLDER - e.g. 4"
     }
   ],
-
   "io_domain": {
     "input_subdomain": [
       {
-        "mediatype": "application/pdf",
         "uri": {
           "uri": "PLACEHOLDER - manufacturer instructions for use URI",
           "filename": "PLACEHOLDER_instructions_for_use.pdf",
@@ -393,7 +380,6 @@
         }
       },
       {
-        "mediatype": "application/pdf",
         "uri": {
           "uri": "PLACEHOLDER - study/validation paper DOI",
           "filename": "PLACEHOLDER_study_reference.pdf",
@@ -401,7 +387,6 @@
         }
       },
       {
-        "mediatype": "application/pdf",
         "uri": {
           "uri": "PLACEHOLDER - reference limit derivation source",
           "filename": "reference_limit_derivation.pdf",
@@ -409,7 +394,6 @@
         }
       },
       {
-        "mediatype": "application/pdf",
         "uri": {
           "uri": "PLACEHOLDER - local lab method validation report",
           "filename": "method_validation_report.pdf",
@@ -434,7 +418,6 @@
       }
     ]
   },
-
   "error_domain": {
     "empirical_error": {
       "imprecision_at_decision_limit": "PLACEHOLDER - describe how analytical imprecision affects values near the decision limit",

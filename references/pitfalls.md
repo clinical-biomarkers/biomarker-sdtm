@@ -1,6 +1,6 @@
 ---
 doc: pitfalls
-version: 2.0.0
+version: 2.1.0
 status: current
 updated: 2026-10-19
 source: project experience · SDTMIG v3.4 (standard domains) · Troponin_I_SDTM.xlsx (BM)
@@ -29,7 +29,7 @@ source: project experience · SDTMIG v3.4 (standard domains) · Troponin_I_SDTM.
 | Zone | Condition | LBORRES (LoD 0.006, LLOQ 0.03, ULOQ 50) | LBSTRESN |
 |---|---|---|---|
 | `below_lod` | value < LoD | `<0.006` | null |
-| `detected_below_lloq` | LoD ≤ value < LLOQ | `<0.03` | null |
+| `detected_below_lloq` | LoD ≤ value < LLOQ | `0.021` (the value as reported) | `0.021` |
 | `quantifiable` | LLOQ ≤ value ≤ ULOQ | `0.058` | `0.058` |
 | `above_uloq` | value > ULOQ | `>50` | null |
 
@@ -37,7 +37,10 @@ source: project experience · SDTMIG v3.4 (standard domains) · Troponin_I_SDTM.
   `limit_of_quantitation`, `upper_limit_of_quantitation`). Never hard-code them.
 - Write only these four values. `measurable` is accepted on input as a synonym of
   `quantifiable`; `BLQ`, `BLOQ`, `<LLOQ` and `not_detected` are rejected.
-- A censored LBSTRESN is null: never 0 and never the limit itself.
+- Below the LoD and above the ULOQ, LBSTRESN is null: never 0 and never the limit itself.
+- Between the LoD and the LLOQ the result keeps its number (project policy); SUPPLB.CENSOR =
+  `detected_below_lloq` tells readers it is not quantifiable.
+- The converter checks each reported result against its rBCO `censor_state` and stops on a mismatch.
 - If LoD = LLOQ, the `detected_below_lloq` zone is empty. Still use the zone names the tBCO
   thresholds produce.
 
@@ -107,14 +110,11 @@ The variable list and provenance letters are in `sdtmig-guide.md` §6, the only 
   Flag any value that is not a CT term.
 - **Baseline.** LBBLFL is `Y` or null, never `N`. LBLOBXFL (Expected) flags the last value before
   RFXSTDTC; with no exposure in the study, leave it null.
-- **Limits belong in LB.** LBLLOD is a standard variable and LBLLOQ/LBULOQ may be added
-  (SDTMIG §8.4.4 forbids SUPPLB for them). The converter still writes them to SUPPLB; say so in the
-  hand-over.
-- **Multiple timepoints per subject.** A subject may have several measurements (0 h, 3 h, 6 h).
-  Each gets:
-  - A separate rBCO (one per collection timepoint)
-  - A separate LB row
-  - The same BM row (BM is assay-level, not timepoint-level)
+- **Limits belong in LB.** LoD, LLOQ and ULOQ are written to LBLLOD, LBLLOQ and LBULOQ, never to
+  SUPPLB (SDTMIG §8.4.4).
+- **Multiple timepoints per subject.** A subject measured at 0 h, 3 h and 6 h in one analytical run
+  has one rBCO (one per subject per analytical run) holding three measurements, three LB rows, and
+  shares the BM rows with every other subject (BM is assay-level).
 - **Joins.** LB and SUPPLB join DM on STUDYID + USUBJID. BM has no USUBJID; it joins LB through
   BMSRCDOM/BMSRCVAR/BMSRCVAL. Always include DM.
 - **Other domains.** If the biomarker is genomic, cellular, microbiological, histological or a drug
@@ -122,10 +122,12 @@ The variable list and provenance letters are in `sdtmig-guide.md` §6, the only 
 
 ## 8. Round trip (SDTM → record set)
 
-- The thresholds survive (SUPPLB or LB limits) and so do the censor zones (SUPPLB.CENSOR).
-- Lost: result values (the rBCO has no value field), BMEVID (the BMKB record has no evidence),
-  instrument, lot, calibration and QC detail. The reverse output marks them `PLACEHOLDER`; list
-  them in the hand-over.
+- The thresholds (LB limits) and the censor zones (SUPPLB.CENSOR) survive. One rBCO is rebuilt per
+  subject per run.
+- Result values and demographics are not rebuilt: BCOs and BMKB records are public-facing and never
+  hold individual-level data. This loss is expected.
+- Also lost: BMEVID and BMASSRT (no BMKB field), instrument, lot, calibration and QC detail. The
+  reverse output marks them `PLACEHOLDER`; list them in the hand-over.
 - The IEEE 2791 schema may change. Reconcile `references/schemas/` with
   `https://w3id.org/ieee/ieee-2791-schema/2791object.json` when you bump the spec version.
 
@@ -136,7 +138,9 @@ The variable list and provenance letters are in `sdtmig-guide.md` §6, the only 
 | `validate_bco.py` FAIL | Missing domain, missing required field, or malformed etag | Read the reported check. Required domains are listed in `SKILL.md` Step 2. Re-run `finalize_draft.py` after any hand edit |
 | `finalize_draft.py --check` MISMATCH | Content changed after the etag was computed | `python scripts/finalize_draft.py --input <file>`, then `--check` again |
 | Censor state rejected | A non-standard term (`BLQ`, `<LLOQ`, `not_detected`) | Use the four zones in §1; let `resolve_censor_state()` decide |
-| Numeric LBSTRESN on a censored result | The zone was not applied | Only `quantifiable` gets a number; `make_sdtm_fields()` returns the pair |
+| Numeric LBSTRESN below the LoD or above the ULOQ | The zone was not applied | `make_sdtm_fields()` returns the pair; only those two zones get a null |
+| Converter: "result ... is X against the tBCO limits, but the rBCO says Y" | The rBCO censor_state was set by eye or with other limits | Recompute it with `resolve_censor_state()` |
+| Converter: "cannot convert; fill these first" | A converter-critical field is unfilled | See `required-fields.md`; ask the user for each item listed |
 | `validate_bmkb.py` FAIL on entity type | Type outside the allowed set or wrong case | `python scripts/biomarker_accessions.py` prints the table |
 | Wrong accession | Resource chosen by guess | `accession_resource_for(<type>)`; confirm the id resolves before using it |
 | BM.BMEVID empty | No `--evidence` given (the record carries none by design) | Pass `--evidence PMID:...` from the context-of-use or protocol |

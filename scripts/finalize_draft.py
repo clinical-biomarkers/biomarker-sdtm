@@ -66,10 +66,19 @@ def finalize(obj: dict) -> dict:
     return out
 
 
+def has_annotations(obj: Any) -> bool:
+    """True if any ``//_`` annotation key is left anywhere in *obj*."""
+    if isinstance(obj, dict):
+        return any(k.startswith("//_") or has_annotations(v) for k, v in obj.items())
+    if isinstance(obj, list):
+        return any(has_annotations(v) for v in obj)
+    return False
+
+
 def verify_etag(obj: dict) -> bool:
-    """True if the object's ``etag`` matches its content."""
+    """True if the object is finalized: no ``//_`` keys and an ``etag`` matching its content."""
     current = obj.get("etag", "")
-    return bool(current) and current == compute_etag(strip_comments(obj))
+    return bool(current) and not has_annotations(obj) and current == compute_etag(obj)
 
 
 # ---------------------------------------------------------------------------
@@ -115,6 +124,8 @@ def _self_test() -> int:
         errors.append("verify_etag rejects a freshly finalized object")
     if verify_etag({**once, "a": 999}):
         errors.append("verify_etag accepts an object whose content changed")
+    if verify_etag({**once, "//_note": "left over"}):
+        errors.append("verify_etag accepts an object that still has //_ keys")
 
     # 6) real gold objects survive the round trip
     for fn in ("Troponin_I_tBCO.json", "Troponin_I_patient1_rBCO.json"):
@@ -168,7 +179,8 @@ def main() -> None:
 
     if args.check:
         ok = verify_etag(obj)
-        print(f"[{'OK' if ok else 'MISMATCH'}] {args.input}")
+        why = " (annotation //_ keys left: run finalize)" if has_annotations(obj) else ""
+        print(f"[{'OK' if ok else 'MISMATCH'}] {args.input}{why if not ok else ''}")
         sys.exit(0 if ok else 1)
 
     out = finalize(obj)

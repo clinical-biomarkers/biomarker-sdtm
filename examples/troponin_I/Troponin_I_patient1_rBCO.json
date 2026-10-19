@@ -1,7 +1,7 @@
 {
   "object_id": "https://biocomputeobject.org/PLACEHOLDER_Troponin_I_patient1_rBCO/1.0.0",
   "spec_version": "https://w3id.org/ieee/ieee-2791-schema/2791object.json",
-  "etag": "696c43ab86577b920a9390e9ee612fd2a948f75bae88e04dfd45f2c355fd672d",
+  "etag": "41d08e3ad8a0b0031a08fc8d3b01f112e9e357b8141ac889d73e9d6541749dd7",
   "provenance_domain": {
     "name": "Cardiac troponin I, subject BM-2026-01-001, run R-2026-0315-01",
     "version": "1.0",
@@ -64,7 +64,7 @@
         "usubjid": "BM-2026-01-001",
         "specification": {
           "tbco_object_id": "https://biocomputeobject.org/PLACEHOLDER_Troponin_I_tBCO/1.0.0",
-          "spec_id": "tnni3_tniultra_advia_centaur_xp",
+          "spec_id": "TNNI3_TNIULTRA",
           "spec_version": "1.0.0",
           "conformance": "conforms"
         },
@@ -93,38 +93,41 @@
           {
             "idvar": "LBSEQ",
             "idvarval": 1,
-            "lbtestcd": "TNNI3",
+            "lbtestcd": "TROPONI3",
             "visit": "ADMISSION",
             "specimen_id": "S-0001-T1",
             "specimen_type": "SERUM",
             "collection_dtc": "2026-03-15T08:10",
             "analysis_dtc": "PLACEHOLDER - instrument timestamp",
             "censor_state": "detected_below_lloq",
-            "repeated": false
+            "repeated": false,
+            "visitnum": 1
           },
           {
             "idvar": "LBSEQ",
             "idvarval": 2,
-            "lbtestcd": "TNNI3",
+            "lbtestcd": "TROPONI3",
             "visit": "3 HOURS",
             "specimen_id": "S-0001-T2",
             "specimen_type": "SERUM",
             "collection_dtc": "2026-03-15T11:10",
             "analysis_dtc": "PLACEHOLDER - instrument timestamp",
             "censor_state": "quantifiable",
-            "repeated": false
+            "repeated": false,
+            "visitnum": 2
           },
           {
             "idvar": "LBSEQ",
             "idvarval": 3,
-            "lbtestcd": "TNNI3",
+            "lbtestcd": "TROPONI3",
             "visit": "6 HOURS",
             "specimen_id": "S-0001-T3",
             "specimen_type": "SERUM",
             "collection_dtc": "2026-03-15T14:10",
             "analysis_dtc": "PLACEHOLDER - instrument timestamp",
             "censor_state": "quantifiable",
-            "repeated": false
+            "repeated": false,
+            "visitnum": 3
           }
         ],
         "deviations": [],
@@ -144,54 +147,57 @@
           {
             "name": "SUPPLB",
             "file": "supplb.xpt",
-            "rows_for_this_subject": 18
+            "rows_for_this_subject": 6
           }
         ],
         "supplb_derivation": [
           {
             "qnam": "ASSAYNAM",
-            "qorig": "CRF",
+            "qorig": "Assigned",
             "qeval": "VENDOR",
             "resolves_in": "tBCO",
-            "path": "assay.name"
+            "path": "assay.assay_name"
           },
           {
             "qnam": "ASSAYPLT",
-            "qorig": "CRF",
+            "qorig": "Assigned",
             "qeval": "VENDOR",
             "resolves_in": "tBCO",
             "path": "assay.platform"
           },
           {
-            "qnam": "LBLOD",
-            "qorig": "CRF",
-            "qeval": "VENDOR",
-            "resolves_in": "tBCO",
-            "path": "analytical_performance.limit_of_detection.value"
-          },
-          {
-            "qnam": "LBLLOQ",
-            "qorig": "CRF",
-            "qeval": "VENDOR",
-            "resolves_in": "tBCO",
-            "path": "analytical_performance.limit_of_quantitation.value"
-          },
-          {
-            "qnam": "LBULOQ",
-            "qorig": "CRF",
-            "qeval": "VENDOR",
-            "resolves_in": "tBCO",
-            "path": "analytical_performance.upper_limit_of_quantitation.value"
+            "qnam": "RBCOID",
+            "qorig": "Assigned",
+            "qeval": "SPONSOR",
+            "resolves_in": "rBCO",
+            "path": "object_id"
           },
           {
             "qnam": "CENSOR",
-            "qorig": "DERIVED",
+            "qorig": "Derived",
             "qeval": "SPONSOR",
             "resolves_in": "rBCO",
             "path": "measurements[].censor_state"
           }
         ],
-        "note": "Five of the six supplemental qualifiers resolve in the specification and are identical for every record made under it. Only CENSOR is a property of a measurement, and it is derived from the concentration against the specification's limits rather than entered by hand."
+        "note": "The analytical limits are standard LB variables (LBLLOD, LBLLOQ, LBULOQ) and resolve in the specification. Of the four supplemental qualifiers, ASSAYNAM and ASSAYPLT resolve in the specification, RBCOID in this run, and CENSOR is derived per measurement against the specification's limits.",
+        "lb_derivation": [
+          {
+            "variable": "LBLLOD",
+            "resolves_in": "tBCO",
+            "path": "analytical_performance.limit_of_detection.value"
+          },
+          {
+            "variable": "LBLLOQ",
+            "resolves_in": "tBCO",
+            "path": "analytical_performance.limit_of_quantitation.value"
+          },
+          {
+            "variable": "LBULOQ",
+            "resolves_in": "tBCO",
+            "path": "analytical_performance.upper_limit_of_quantitation.value"
+          }
+        ]
       }
     }
   ],
@@ -265,7 +271,12 @@
         "description": "Clotted, centrifuged and serum separated within the window the specification allows.",
         "version": "1.0",
         "prerequisite": [
-          "Specimen collection"
+          {
+            "name": "Specimen collection",
+            "uri": {
+              "uri": "PLACEHOLDER"
+            }
+          }
         ],
         "input_list": [
           {
@@ -284,7 +295,12 @@
         "description": "Serum analysed under an accepted calibration and an accepted control record, using the assay definition the specification names.",
         "version": "1.0",
         "prerequisite": [
-          "Specimen processing"
+          {
+            "name": "Specimen processing",
+            "uri": {
+              "uri": "PLACEHOLDER"
+            }
+          }
         ],
         "input_list": [
           {
@@ -303,7 +319,12 @@
         "description": "Results checked against the control record, censoring state derived against the specification's limits, then released.",
         "version": "1.0",
         "prerequisite": [
-          "Analysis"
+          {
+            "name": "Analysis",
+            "uri": {
+              "uri": "PLACEHOLDER"
+            }
+          }
         ],
         "input_list": [
           {
@@ -322,7 +343,12 @@
         "description": "Released concentrations mapped to LB records; run and specification context mapped to SUPPLB using the derivation table in the SDTM extension.",
         "version": "1.0",
         "prerequisite": [
-          "Review, censoring and release"
+          {
+            "name": "Review, censoring and release",
+            "uri": {
+              "uri": "PLACEHOLDER"
+            }
+          }
         ],
         "input_list": [
           {
@@ -387,7 +413,6 @@
   "io_domain": {
     "input_subdomain": [
       {
-        "mediatype": "application/json",
         "uri": {
           "uri": "https://biocomputeobject.org/PLACEHOLDER_Troponin_I_tBCO/1.0.0",
           "filename": "Troponin_I_tBCO.json",
@@ -395,7 +420,6 @@
         }
       },
       {
-        "mediatype": "application/x-sas-xport",
         "uri": {
           "uri": "PLACEHOLDER - submission dataset location",
           "filename": "dm.xpt",
@@ -403,7 +427,6 @@
         }
       },
       {
-        "mediatype": "text/csv",
         "uri": {
           "uri": "PLACEHOLDER - instrument result export for this run",
           "filename": "instrument_export_R-2026-0315-01.csv",
@@ -411,7 +434,6 @@
         }
       },
       {
-        "mediatype": "application/pdf",
         "uri": {
           "uri": "PLACEHOLDER - calibration and control log for this run",
           "filename": "qc_log_R-2026-0315-01.pdf",

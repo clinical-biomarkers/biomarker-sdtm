@@ -14,7 +14,7 @@ examples/
 ├── adjudication_log.csv      # decisions on agent-vs-gold discrepancies
 └── <example_name>/           # one validated example per folder
     ├── <name>_tBCO.json          # the validated template BCO
-    ├── <name>_patient1_rBCO.json # the validated run BCO
+    ├── <name>_patient<N>_rBCO.json # one validated run BCO per subject per run
     ├── <name>_biomarkerKB.json   # the validated BMKB record
     ├── <name>_SDTM.xlsx          # the validated SDTM output
     └── <name>_readme.txt         # human index of the example

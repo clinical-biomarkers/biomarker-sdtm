@@ -1,6 +1,6 @@
 ---
 doc: sdtmig-guide
-version: 2.0.0
+version: 2.1.0
 status: current
 updated: 2026-10-19
 source: CDISC SDTMIG v3.4 (DM, LB, SUPPLB, domain index) · Troponin_I_SDTM.xlsx Definitions sheet (BM)
@@ -23,17 +23,21 @@ source: CDISC SDTMIG v3.4 (DM, LB, SUPPLB, domain index) · Troponin_I_SDTM.xlsx
 - **Sources of truth.** For every standard domain (DM, LB, SUPPLB and all of §2), the source is
   `references/sdtmig-v3.4.pdf`; this guide distils it. For the proposed BM domain the source is the
   Definitions sheet of `examples/troponin_I/Troponin_I_SDTM.xlsx`; §6 reproduces it.
-- **Reading order.** Read §2 first to decide which domains the study needs, then the section for each
-  domain. Open the PDF only when this guide cannot answer the question: go to the page listed in §2,
-  not the whole file (461 pages).
+- **Reading order.** Read §1 and §2 first to decide which domains the study needs, then only the
+  section for each domain you need. To check one variable, search for it rather than reading on:
+  `grep -n "LBLLOD" references/sdtmig-guide.md`.
+- **The PDF.** Open `references/sdtmig-v3.4.pdf` only when this guide cannot answer the question,
+  and read only the pages §2 lists (the Read tool takes a page range, e.g. pages 241-247 for LB).
+  Never read the whole file (461 pages).
 - **Provenance letters** used below: **T** tBCO · **R** rBCO / run · **K** BiomarkerKB record ·
   **N** new, proposed here · **S** study, CRF or derived.
 
 ## 2. Domain index
 
-The converter emits DM, LB, SUPPLB and BM only. Use this index to check whether the study's
-biomarker also needs another domain; if it does, say so in your report rather than forcing the data
-into LB. PDF page = printed page.
+The converter writes DM, a specimen-based findings domain (LB by default; IS, GF, CP, BS or PC with
+`--domain`), its SUPP dataset, and BM. Use this index to choose the findings domain, and to list the
+context domains the biomarker's role needs (`best-definitions.md` §3); the converter does not write
+those, so name them in the hand-over report. PDF page = printed page.
 
 ### Where the measurement itself belongs
 
@@ -116,7 +120,7 @@ One record per test per time point per visit per subject.
 | LBLLOD | Perm | T | **Lower limit of detection is a standard LB variable** |
 | LBLLOQ, LBULOQ | Perm | T | Findings-class qualifiers (--LLOQ, --ULOQ, p. 194). LB assumption 5 allows any Findings-class qualifier to be added |
 | LBSTRESC | Exp | S | Standardised character result (a censored value keeps its operator, e.g. `<0.006`) |
-| LBSTRESN | Exp | S | Numeric standardised result; **null when the result is not a clean number** (§4.5.1 example: `BLQ` → null) |
+| LBSTRESN | Exp | S | Numeric standardised result; null when there is no number (`<0.006` below the LoD, `BLQ`). A value between the LoD and the LLOQ keeps its number |
 | LBSTRESU | Exp | T | Standard unit |
 | LBSTNRLO, LBSTNRHI, LBSTNRC | Exp / Perm | T | Reference range in standard units, from tBCO `reference_limits` |
 | LBNRIND | Exp | S | `NORMAL`, `HIGH`, `LOW`, `ABNORMAL` against the reference range |
@@ -135,7 +139,8 @@ One record per test per time point per visit per subject.
 | LBTPT, LBTPTNUM, LBELTM, LBTPTREF | Perm | S | Planned time points relative to a reference (dose, admission) |
 
 The censor zones (`below_lod`, `detected_below_lloq`, `quantifiable`, `above_uloq`) and their
-LBORRES/LBSTRESN values come from `scripts/censor_state.py`. Do not derive them by hand.
+LBORRES/LBSTRESN values come from `scripts/censor_state.py` (table: `pitfalls.md` §1). Do not derive
+them by hand.
 
 ## 5. SUPPLB: Supplemental Qualifiers for LB (§8.4, p. 432)
 
@@ -154,20 +159,15 @@ per-result fact, `LBGRPID` for a fact shared by a block of records.
 
 **Rule (§8.4.4, p. 434): do not use SUPPLB for data that a standard LB variable can hold.**
 
-The project proposes these qualifiers (source: xlsx Definitions sheet):
+The project proposes four qualifiers (source: xlsx Definitions sheet). The assay limits are not
+among them: they are the LB variables LBLLOD, LBLLOQ and LBULOQ (§4).
 
-| QNAM | Keyed on | Prov. | Content | Status under §8.4.4 |
-|---|---|---|---|---|
-| ASSAYNAM | LBGRPID | T | Assay trade name (tBCO `assay.assay_name`) | OK: LB has no variable for it |
-| ASSAYPLT | LBGRPID | T | Instrument / analyser (tBCO `assay.platform`) | OK |
-| RBCOID | LBGRPID | R | rBCO `object_id`: the only link from a result to its run | OK |
-| CENSOR | LBSEQ | R | Censor zone, derived, never entered by hand | OK |
-| LBLOD | LBGRPID | T | Limit of detection | **Conflicts:** LB.LBLLOD exists |
-| LBLLOQ | LBGRPID | T | Lower limit of quantitation | **Conflicts:** LB.LBLLOQ may be added |
-| LBULOQ | LBGRPID | T | Upper limit of quantitation | **Conflicts:** LB.LBULOQ may be added |
-
-`record_set_to_sdtm.py` and the gold xlsx still emit the three conflicting qualifiers. When you hand
-over SDTM output, state that LBLLOD/LBLLOQ/LBULOQ belong in LB under SDTMIG v3.4.
+| QNAM | Keyed on | Prov. | Content |
+|---|---|---|---|
+| ASSAYNAM | LBGRPID | T | Assay trade name (tBCO `assay.assay_name`); LB has no variable for it |
+| ASSAYPLT | LBGRPID | T | Instrument / analyser (tBCO `assay.platform`) |
+| RBCOID | LBGRPID | R | rBCO `object_id`: the only link from a result to its run |
+| CENSOR | LBSEQ | R | Censor zone, derived, never entered by hand |
 
 ## 6. BM: Biomarker Context (proposed; source: xlsx Definitions sheet)
 
@@ -206,7 +206,9 @@ Join: `BM --BMSRCDOM / BMSRCVAR / BMSRCVAL--> LB`; `BMBCOID` points at the tBCO 
 | BMASSRT | Asserting Party | N | Who asserted the claim (from the context-of-use document) |
 | BMASSDTC | Assertion Date | N | ISO 8601 date the claim was asserted |
 
-One BM row per (biomarker, assay, role, condition). Two assays for the same analyte need two rows.
+One BM row per (biomarker, assay, role, condition): a record with two BEST roles gives two rows
+(BM-001, BM-002), each with the BMRULE of the tBCO rule tagged with that role. Two assays for the same
+analyte need two sets of rows.
 
 ## 7. Reverse mapping: SDTM → record set
 
@@ -216,7 +218,7 @@ One BM row per (biomarker, assay, role, condition). Two assays for the same anal
 | LB.LBSPEC | tBCO `specimen_requirements.specimen_type` |
 | LB.LBMETHOD / LBNAM / LBLOINC | tBCO `assay.method` / `assay.manufacturer` / `assay.loinc_code` |
 | SUPPLB.ASSAYNAM / ASSAYPLT | tBCO `assay.assay_name` / `assay.platform` |
-| SUPPLB.LBLOD / LBLLOQ / LBULOQ (or LB.LBLLOD / LBLLOQ / LBULOQ) | tBCO `analytical_performance.limit_of_detection` / `limit_of_quantitation` / `upper_limit_of_quantitation` `.value` |
+| LB.LBLLOD / LBLLOQ / LBULOQ (older files: SUPPLB.LBLOD / LBLLOQ / LBULOQ) | tBCO `analytical_performance.limit_of_detection` / `limit_of_quantitation` / `upper_limit_of_quantitation` `.value` |
 | BM.BMRULE | tBCO `interpretation_rules[].expression` |
 | SUPPLB.RBCOID | rBCO `object_id` |
 | LB.LBREFID / VISIT / LBDTC | rBCO `measurements[].specimen_id` / `visit` / `collection_dtc` |
@@ -226,5 +228,7 @@ One BM row per (biomarker, assay, role, condition). Two assays for the same anal
 | BM.BMCOND / BMCONDID | BMKB `condition.name` (lowercase) / `condition.id` |
 | BM.BMASSDTC | BMKB `provenance.date` |
 
-Lossy: LBORRES/LBSTRESN values have no home in the record set, and BMEVID has no home in the
-BMKB submission record. Report both as not reconstructed.
+BCOs and BMKB records are public-facing and never hold individual results or demographics, so the
+reverse direction does not rebuild them. Also not rebuilt: BMEVID and BMASSRT (the BMKB record has
+no field for them), and run and IFU detail SDTM never carried. `sdtm_to_record_set.py` prints this
+list; repeat it in the hand-over report.

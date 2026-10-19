@@ -5,16 +5,12 @@
   "//_note_3": "export, LIMS, and QC documentation. derived_from MUST link to the governing tBCO.",
   "//_note_4": "Reference: examples/troponin_I/Troponin_I_patient1_rBCO.json, references/bco-schema.md",
   "//_note_5": "==================================================================================",
-
   "object_id": "https://biocomputeobject.org/PLACEHOLDER_<SUBJECT>_<RUN_ID>/1.0.0",
   "//_object_id_help": "Unique, never-reused URI. Pattern: https://biocomputeobject.org/PLACEHOLDER_<subject_id>_<run_id>/<semver>",
-
   "spec_version": "https://w3id.org/ieee/ieee-2791-schema/2791object.json",
   "//_spec_version_help": "Pin to the IEEE 2791 schema URI (read-only). Use latest available.",
-
   "etag": "PLACEHOLDER - SHA-256 hex digest of this JSON object",
   "//_etag_help": "SHA-256 hex digest. Compute programmatically after the object is fully populated.",
-
   "provenance_domain": {
     "name": "PLACEHOLDER - <BIOMARKER>, subject <SUBJECT_ID>, run <RUN_ID>",
     "version": "1.0.0",
@@ -27,19 +23,26 @@
       {
         "name": "PLACEHOLDER - Creator name",
         "affiliation": "PLACEHOLDER - Institution",
-        "contribution": ["createdBy", "authoredBy"],
+        "contribution": [
+          "createdBy",
+          "authoredBy"
+        ],
         "email": "PLACEHOLDER@institution.edu"
       },
       {
         "name": "PLACEHOLDER - Reviewer name",
         "affiliation": "PLACEHOLDER - Institution",
-        "contribution": ["contributedBy"],
+        "contribution": [
+          "contributedBy"
+        ],
         "email": "PLACEHOLDER@institution.edu"
       },
       {
         "name": "PLACEHOLDER - Performing laboratory",
         "affiliation": "PLACEHOLDER - laboratory name and accreditation identifier",
-        "contribution": ["providedBy"],
+        "contribution": [
+          "providedBy"
+        ],
         "email": "PLACEHOLDER@lab.example"
       }
     ],
@@ -51,22 +54,21 @@
         "reviewer": {
           "name": "PLACEHOLDER - Reviewer name",
           "affiliation": "PLACEHOLDER - Institution",
-          "contribution": ["curatedBy"],
+          "contribution": [
+            "curatedBy"
+          ],
           "email": "PLACEHOLDER@institution.edu"
         }
       }
     ]
   },
-
   "usability_domain": [
     "PLACEHOLDER - One-sentence narrative of what this run covers. (e.g., 'Cardiac troponin I was measured in serum for subject BM-2026-01-001 in study BM-2026-01 at three time points — admission, 3 hours, 6 hours — under a single calibration. Controls were accepted before any result was released. No specimen was rejected and no measurement was repeated.')"
   ],
-
   "extension_domain": [
     {
       "extension_schema": "PLACEHOLDER - https://<org>/biocompute/extension_domain/1.0.0/assay_run/assay_run_extension.json",
       "//_extension_schema_help": "URI of the JSON Schema for the assay-run extension. PLACEHOLDER until published.",
-
       "assay_run_extension": {
         "run_id": "PLACEHOLDER - e.g., R-2026-0315-01",
         "studyid": "PLACEHOLDER - e.g., BM-2026-01",
@@ -102,14 +104,15 @@
           {
             "idvar": "LBSEQ",
             "idvarval": 1,
-            "lbtestcd": "PLACEHOLDER - short biomarker code (e.g., TNNI3)",
+            "lbtestcd": "PLACEHOLDER - same CDISC CT code as tBCO target.lbtestcd",
             "visit": "PLACEHOLDER - e.g., ADMISSION, 3 HOURS, 6 HOURS",
             "specimen_id": "PLACEHOLDER - e.g., S-0001-T1",
             "specimen_type": "PLACEHOLDER - e.g., SERUM, PLASMA",
             "collection_dtc": "PLACEHOLDER - ISO 8601 datetime of specimen collection",
             "analysis_dtc": "PLACEHOLDER - instrument timestamp",
             "censor_state": "PLACEHOLDER - from resolve_censor_state()",
-            "repeated": false
+            "repeated": false,
+            "visitnum": null
           }
         ],
         "//_measurements_help": "Array of one or more measurements in this run. Expand with additional entries. censor_state comes from scripts/censor_state.py resolve_censor_state(); allowed values are listed in references/pitfalls.md section 1. Set repeated=true only for replacement measurements.",
@@ -121,7 +124,6 @@
     {
       "extension_schema": "PLACEHOLDER - https://<org>/biocompute/extension_domain/1.0.0/sdtm/sdtm_extension.json",
       "//_extension_schema_help": "URI of the JSON Schema for the SDTM extension. PLACEHOLDER until published.",
-
       "sdtm_extension": {
         "standard": "SDTMIG v3.4 over SDTM v2.1",
         "//_standard_help": "Declare the SDTMIG and SDTM versions used. Update if a newer version is adopted.",
@@ -141,53 +143,55 @@
         "supplb_derivation": [
           {
             "qnam": "ASSAYNAM",
-            "qorig": "CRF",
+            "qorig": "Assigned",
             "qeval": "VENDOR",
             "resolves_in": "tBCO",
             "path": "assay.assay_name"
           },
           {
             "qnam": "ASSAYPLT",
-            "qorig": "CRF",
+            "qorig": "Assigned",
             "qeval": "VENDOR",
             "resolves_in": "tBCO",
             "path": "assay.platform"
           },
           {
-            "qnam": "LBLOD",
-            "qorig": "CRF",
-            "qeval": "VENDOR",
-            "resolves_in": "tBCO",
-            "path": "analytical_performance.limit_of_detection.value"
-          },
-          {
-            "qnam": "LBLLOQ",
-            "qorig": "CRF",
-            "qeval": "VENDOR",
-            "resolves_in": "tBCO",
-            "path": "analytical_performance.limit_of_quantitation.value"
-          },
-          {
-            "qnam": "LBULOQ",
-            "qorig": "CRF",
-            "qeval": "VENDOR",
-            "resolves_in": "tBCO",
-            "path": "analytical_performance.upper_limit_of_quantitation.value"
+            "qnam": "RBCOID",
+            "qorig": "Assigned",
+            "qeval": "SPONSOR",
+            "resolves_in": "rBCO",
+            "path": "object_id"
           },
           {
             "qnam": "CENSOR",
-            "qorig": "DERIVED",
+            "qorig": "Derived",
             "qeval": "SPONSOR",
             "resolves_in": "rBCO",
             "path": "measurements[].censor_state"
           }
         ],
         "//_supplb_derivation_help": "Map each SUPPLB qualifier to its source. Five of the six resolve in the tBCO (the specification) and are identical for every record. Only CENSOR is per-measurement, derived from the concentration against the specification's limits.",
-        "note": "Five of the six supplemental qualifiers resolve in the specification and are identical for every record made under it. Only CENSOR is a property of a measurement, and it is derived from the concentration against the specification's limits rather than entered by hand."
+        "note": "The analytical limits are standard LB variables (LBLLOD, LBLLOQ, LBULOQ) and resolve in the specification. Of the four supplemental qualifiers, ASSAYNAM and ASSAYPLT resolve in the specification, RBCOID in this run, and CENSOR is derived per measurement against the specification's limits.",
+        "lb_derivation": [
+          {
+            "variable": "LBLLOD",
+            "resolves_in": "tBCO",
+            "path": "analytical_performance.limit_of_detection.value"
+          },
+          {
+            "variable": "LBLLOQ",
+            "resolves_in": "tBCO",
+            "path": "analytical_performance.limit_of_quantitation.value"
+          },
+          {
+            "variable": "LBULOQ",
+            "resolves_in": "tBCO",
+            "path": "analytical_performance.upper_limit_of_quantitation.value"
+          }
+        ]
       }
     }
   ],
-
   "description_domain": {
     "keywords": [
       "PLACEHOLDER - biomarker name (e.g., cardiac troponin I)",
@@ -204,25 +208,33 @@
       {
         "namespace": "uniprot",
         "name": "UniProtKB",
-        "ids": ["PLACEHOLDER - e.g., P19429"],
+        "ids": [
+          "PLACEHOLDER - e.g., P19429"
+        ],
         "access_time": "PLACEHOLDER - ISO 8601 datetime"
       },
       {
         "namespace": "loinc",
         "name": "LOINC",
-        "ids": ["PLACEHOLDER - LOINC code for this analyte/assay"],
+        "ids": [
+          "PLACEHOLDER - LOINC code for this analyte/assay"
+        ],
         "access_time": "PLACEHOLDER - ISO 8601 datetime"
       },
       {
         "namespace": "doid",
         "name": "Human Disease Ontology",
-        "ids": ["PLACEHOLDER - DOID for the evaluated condition"],
+        "ids": [
+          "PLACEHOLDER - DOID for the evaluated condition"
+        ],
         "access_time": "PLACEHOLDER - ISO 8601 datetime"
       },
       {
         "namespace": "uberon",
         "name": "Uberon",
-        "ids": ["PLACEHOLDER - UBERON CURIE for the specimen type"],
+        "ids": [
+          "PLACEHOLDER - UBERON CURIE for the specimen type"
+        ],
         "access_time": "PLACEHOLDER - ISO 8601 datetime"
       }
     ],
@@ -249,7 +261,14 @@
         "name": "Specimen processing",
         "description": "PLACEHOLDER - Clotted, centrifuged and serum separated within the window the specification allows.",
         "version": "1.0",
-        "prerequisite": ["Specimen collection"],
+        "prerequisite": [
+          {
+            "name": "Specimen collection",
+            "uri": {
+              "uri": "PLACEHOLDER - record of 'Specimen collection'"
+            }
+          }
+        ],
         "input_list": [
           {
             "uri": "PLACEHOLDER - labelled specimen tubes"
@@ -266,7 +285,14 @@
         "name": "Analysis",
         "description": "PLACEHOLDER - Serum analysed under an accepted calibration and an accepted control record, using the assay definition the specification names.",
         "version": "1.0",
-        "prerequisite": ["Specimen processing"],
+        "prerequisite": [
+          {
+            "name": "Specimen processing",
+            "uri": {
+              "uri": "PLACEHOLDER - record of 'Specimen processing'"
+            }
+          }
+        ],
         "input_list": [
           {
             "uri": "PLACEHOLDER - serum aliquots"
@@ -283,7 +309,14 @@
         "name": "Review, censoring and release",
         "description": "PLACEHOLDER - Results checked against the control record, censoring state derived against the specification's limits, then released.",
         "version": "1.0",
-        "prerequisite": ["Analysis"],
+        "prerequisite": [
+          {
+            "name": "Analysis",
+            "uri": {
+              "uri": "PLACEHOLDER - record of 'Analysis'"
+            }
+          }
+        ],
         "input_list": [
           {
             "uri": "PLACEHOLDER - instrument result export"
@@ -300,7 +333,14 @@
         "name": "SDTM record generation",
         "description": "PLACEHOLDER - Released concentrations mapped to LB records; run and specification context mapped to SUPPLB using the derivation table in the SDTM extension.",
         "version": "1.0",
-        "prerequisite": ["Review, censoring and release"],
+        "prerequisite": [
+          {
+            "name": "Review, censoring and release",
+            "uri": {
+              "uri": "PLACEHOLDER - record of 'Review, censoring and release'"
+            }
+          }
+        ],
         "input_list": [
           {
             "uri": "PLACEHOLDER - released laboratory report"
@@ -320,7 +360,6 @@
       }
     ]
   },
-
   "execution_domain": {
     "script": [
       {
@@ -364,11 +403,9 @@
     },
     "//_environment_variables_help": "Instrument environmental parameters that affect the analysis. Key-value pairs; keys should be specific to the instrument and assay."
   },
-
   "io_domain": {
     "input_subdomain": [
       {
-        "mediatype": "application/json",
         "uri": {
           "uri": "https://biocomputeobject.org/PLACEHOLDER_<TBCONAME>/1.0.0",
           "filename": "PLACEHOLDER_tBCO.json",
@@ -376,7 +413,6 @@
         }
       },
       {
-        "mediatype": "application/x-sas-xport",
         "uri": {
           "uri": "PLACEHOLDER - submission dataset location",
           "filename": "dm.xpt",
@@ -384,7 +420,6 @@
         }
       },
       {
-        "mediatype": "text/csv",
         "uri": {
           "uri": "PLACEHOLDER - instrument result export for this run",
           "filename": "instrument_export_PLACEHOLDER_RUNID.csv",
@@ -392,7 +427,6 @@
         }
       },
       {
-        "mediatype": "application/pdf",
         "uri": {
           "uri": "PLACEHOLDER - calibration and control log for this run",
           "filename": "qc_log_PLACEHOLDER_RUNID.pdf",
@@ -424,7 +458,6 @@
       }
     ]
   },
-
   "error_domain": {
     "//_error_domain_help": "Document both empirical error (QC-, measurement-, specimen-level) and algorithmic error (methodological limitations of the assay and censoring pipeline).",
     "empirical_error": {
@@ -443,5 +476,6 @@
       "cross_platform_comparability": "PLACEHOLDER - e.g., 'this biomarker is not standardised across manufacturers and no certified primary reference material exists, so these results are not interchangeable with another manufacturer's assay'",
       "scope_limit": "PLACEHOLDER - e.g., 'This rBCO records what was measured and reported. It does not validate the clinical decision that followed.'"
     }
-  }
+  },
+  "//_note_6": "No demographics and no result values: those go only in the study-data file used for SDTM conversion."
 }

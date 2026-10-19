@@ -1,93 +1,83 @@
 ---
 doc: best-definitions
-version: 1.0.0
+version: 2.0.0
 status: current
-updated: 2026-10-15
-source: FDA-NIH BEST glossary
+updated: 2026-10-19
+source: FDA-NIH BEST glossary; Keller et al. NEJM 2009 (troponin example)
 ---
 
-# BEST Biomarker Definitions
+# BEST biomarker roles
 
-> FDA-NIH Biomarker Working Group. *BEST (Biomarkers, EndpointS, and other Tools) Resource* [Internet]. 2016–.
-> URL: https://www.ncbi.nlm.nih.gov/books/NBK326791/
+## Contents
 
-## Core Definition
+1. Definition and the seven roles
+2. How to assign a role
+3. What each role must carry (record set and SDTM)
+4. Prognostic vs predictive
+5. Worked example: troponin I
 
-> A **biomarker** is a defined characteristic that is measured as an indicator of normal biological processes, pathogenic processes, or biological responses to an exposure or intervention, including therapeutic interventions.
->
-> Biomarkers may include molecular, histologic, radiographic, or physiologic characteristics.
-> A biomarker is **not** a measure of how an individual feels, functions, or survives.
+> FDA-NIH Biomarker Working Group. *BEST (Biomarkers, EndpointS, and other Tools) Resource*.
+> https://www.ncbi.nlm.nih.gov/books/NBK326791/ · glossary: https://www.ncbi.nlm.nih.gov/books/NBK338448/
 
-## Seven Biomarker Categories (BEST)
+## 1. Definition and the seven roles
 
-| # | Category | Definition | Relevance to BCO skill |
-|---|----------|-----------|----------------------|
-| 1 | **Susceptibility/Risk** | Indicates the potential for developing a disease or medical condition in an individual who does not currently have clinically apparent disease. | Distinguish from diagnostic — risk biomarkers apply pre-disease |
-| 2 | **Diagnostic** | Detects or confirms presence of a disease or condition of interest, or identifies individuals with a subtype of the disease. | Most common use case (e.g., Troponin I for AMI diagnosis) |
-| 3 | **Prognostic** | Identifies likelihood of a clinical event, disease recurrence, or progression in patients who have the disease or condition of interest. | Clarifies relationship to condition in BM.BMCOND |
-| 4 | **Predictive** | Identifies individuals more likely than similar individuals without the biomarker to experience a favorable or unfavorable effect from exposure to a medical product or environmental agent. | Requires treatment comparison to establish; not interchangeable with prognostic |
-| 5 | **Monitoring** | Measured repeatedly for assessing status of a disease or medical condition, or for evidence of exposure to (or effect of) a medical product or environmental agent. | Troponin I in the worked example is MONITORING — measured serially (0h, 3h, 6h) |
-| 6 | **Safety** | Measured before or after an exposure to a medical product or environmental agent to indicate the likelihood, presence, or extent of toxicity as an adverse effect. | Populated in BM.BMROLE when biomarker tracks toxicity |
-| 7 | **Pharmacodynamic/Response** | A biomarker that shows a biological response has occurred in an individual who has been exposed to a medical product or environmental agent. | Indicates engagement of a therapeutic target |
+A **biomarker** is a defined characteristic measured as an indicator of normal biological
+processes, pathogenic processes, or responses to an exposure or intervention. It is not a measure of
+how a person feels, functions or survives.
 
-### Provenance: where each role comes from
+| Role (BMKB value, lowercase) | Definition |
+|---|---|
+| `susceptibility/risk` | Indicates the potential for developing a disease in someone who does not currently have it |
+| `diagnostic` | Detects or confirms the presence of a disease, or identifies a subtype |
+| `prognostic` | Identifies the likelihood of a clinical event, recurrence or progression in people who have the disease |
+| `predictive` | Identifies people more likely than similar people without the biomarker to respond (favourably or not) to a specific product or exposure |
+| `monitoring` | Measured repeatedly to assess the status of a disease, or evidence of exposure to or effect of a product |
+| `safety` | Measured before or after an exposure to indicate the likelihood, presence or extent of toxicity |
+| `pharmacodynamic/response` | Shows that a biological response has occurred in someone exposed to a product |
 
-The biomarker role enters the record set model at two points:
+BMKB `best_biomarker_role[].role` uses the lowercase value; SDTM `BM.BMROLE` uses it uppercased
+(`susceptibility/risk` → `SUSCEPTIBILITY/RISK`).
 
-- **BiomarkerKB record** → `best_biomarker_role` (string, lowercase, e.g. `monitoring`)
-- **BM domain** → `BMROLE` (string, uppercase, e.g. `MONITORING`)
+## 2. How to assign a role
 
-The BMKB record establishes the canonical role from literature/evidence; the BM row repeats it in SDTM casing.
+- Take the role from what the **study documents claim**: the context-of-use statement first, then
+  the protocol's objectives and endpoints, then the cited evidence. Biology alone does not fix a role.
+- **List every role the documents support**, one `best_biomarker_role` entry each. The converter
+  writes one BM row per role.
+- **Never infer a role from the sampling pattern.** Serial draws inside a diagnostic rule (a rise or
+  fall within hours) are still diagnostic; monitoring means tracking disease status or treatment
+  effect over the course of care.
+- Each role needs the annotations in §3. If the documents lack them, the role is not supported:
+  leave it out and say why in the hand-over report.
 
-### Distinguishing prognostic vs predictive (common pitfall)
+## 3. What each role must carry
 
-From BEST § Understanding Prognostic versus Predictive Biomarkers:
+| Role | Measurement pattern | Must be annotated | tBCO / rBCO consequence | SDTM beyond LB (index: `sdtmig-guide.md` §2) |
+|---|---|---|---|---|
+| Diagnostic | Single draw, or a short serial series only when the rule uses a delta | Condition, reference population, decision limit and its direction | A tBCO rule with `role: diagnostic`; `serial_required` only if the rule needs it | CE or MH for the adjudicated diagnosis; TV for planned time points |
+| Monitoring | Repeated over disease or treatment, at least two visits | Anchor (diagnosis or treatment start), visit schedule, change metric and meaningful change | Measurements carry VISITNUM; one rBCO per subject per run | TV / SV; EX when monitoring a treatment; RS for response |
+| Prognostic | Usually baseline, in people with the condition | Outcome event and time horizon; population with the disease | A tBCO rule with `role: prognostic` naming the outcome and window; no treatment comparison | CE / DS / DD for the outcome; MH for the existing condition |
+| Predictive | Pre-treatment baseline | Product, comparator arm, evidence of a treatment-by-biomarker interaction | tBCO rule names the product; measurements before first dose | DM ARM/ACTARM, TA, EX; GF when the marker is genomic |
+| Safety | Before and after exposure | Product or agent; toxicity threshold or grade | Time points relative to dosing; grade criteria in the rule | EX, AE, LBTOXGR; RELREC from LB to AE |
+| Pharmacodynamic / response | Pre-dose and post-dose, timed to the dose | Product, dose, time from dose | LBTPT / LBELTM / LBTPTREF on the measurements | EX; PC/PP when exposure is measured |
+| Susceptibility / risk | Usually once, in people without the condition | Future condition and time window; germline vs somatic | Often no serial sampling; specimen may be DNA | GF for nucleic-acid markers; MH to show absence of disease |
 
-- **Prognostic** biomarkers are identified from observational data — they predict outcome *regardless of treatment*.
-- **Predictive** biomarkers require a treatment-by-biomarker interaction in a randomized trial — they identify who benefits from a *specific* intervention.
-- A biomarker can be both prognostic and predictive.
-- Without a comparator arm, you cannot distinguish them.
+## 4. Prognostic vs predictive
 
-## Biomarker Description Framework
+- Prognostic markers predict outcome **regardless of treatment** and can come from observational data.
+- Predictive markers need a **treatment-by-biomarker interaction**, normally from a randomised
+  comparison. Without a comparator arm, do not assign `predictive`.
+- A marker can be both; record both roles when the evidence supports both.
 
-BEST defines a biomarker description as a succinct summary with these elements:
+## 5. Worked example: troponin I
 
-| Record Set | What it captures | Maps to |
-|-----------|-----------------|---------|
-| **Biomarker Identity** | Name, unique ID (UniProt/LOINC), acronym, source/matrix, type (molecular, histologic, radiographic, physiologic) | BMKB `assessed_biomarker_entity` / `assessed_biomarker_entity_id`; tBCO `target` |
-| **Biologic Plausibility** | Brief summary of the biological pathway linking the biomarker to the condition | Study documents (context of use, protocol) → BM.BMEVID via `--evidence`; the BMKB record carries no evidence |
-| **Measurement Method** | Platform, assay method, units of quantification | tBCO `assay`; BM.BMASSAY/BMNAM/BMPLAT/BMMETHOD |
+Keller et al., *N Engl J Med* 2009;361:868-77 (PMID 19710485) studied 1,818 patients with suspected
+acute myocardial infarction, with blood drawn at admission, 3 h and 6 h. It reports diagnostic
+accuracy (AUC, sensitivity, specificity) and, as a secondary analysis, the risk of adverse outcome at
+30 days. The study protocol (fixture 01) names the same two objectives.
 
-### Application in the record set model
+- `diagnostic`, condition AMI (DOID:5844): `Value > 0.04 ng/mL AND rise or fall >= 30% within 6 h`
+- `prognostic`, same population: `Admission value > 0.04 ng/mL` for death, MI or
+  revascularisation within 30 days
 
-The record set implements the BEST description framework across its pieces:
-
-```
-BEST Element        → Record Set Part
-─────────────────────────────────────────────
-Biomarker Identity  → BMKB record (entity, ID, type)
-Condition           → BMKB `condition` + BM.BMCOND/BMCONDID
-Role                → BMKB `best_biomarker_role` + BM.BMROLE
-Measurement Method  → tBCO (assay, platform, method, specimen, LOINC)
-Performance         → tBCO (LoD, LLOQ, ULOQ, precision, reference limits)
-Evidence            → study documents → BM.BMEVID (via --evidence)
-Censoring           → rBCO `measurements[].censor_state`
-```
-
-## Relationship to the BCO Skill
-
-The skill must:
-
-1. **Assign the correct BEST role** to each biomarker based on the study protocol (how the biomarker is used in the trial, not just its biology)
-2. **Populate BM.BMROLE** in SDTM output with the uppercase role code
-3. **Derive "monitoring" and "diagnostic" roles** from study design:
-   - Serial timepoints → likely *monitoring*
-   - Single-threshold decision → likely *diagnostic* or *prognostic*
-4. **Document the basis** for role assignment (trial design, published evidence)
-
-## References
-
-- BEST Resource homepage: https://www.ncbi.nlm.nih.gov/books/NBK326791/
-- Glossary: https://www.ncbi.nlm.nih.gov/books/NBK338448/
-- Contents of a Biomarker Description: https://www.ncbi.nlm.nih.gov/books/NBK566059/
-- FDA overview: https://www.fda.gov/drugs/biomarker-qualification-program/about-biomarkers-and-qualification
+It is **not** a monitoring biomarker. The serial draws belong to the diagnostic rule.

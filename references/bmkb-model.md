@@ -1,6 +1,6 @@
 ---
 doc: bmkb-model
-version: 2.1.0
+version: 2.2.0
 status: current
 updated: 2026-10-19
 source: BiomarkerKB data-submission wiki + Troponin I example
@@ -64,17 +64,20 @@ provenance                 (provider, author, date, description)
 ```
 
 - `name` is **lowercase** (e.g. `colon cancer`).
-- `id`: a CURIE from **Disease Ontology (DOID), MONDO, SNOMED, or NCIt** — format `DOID:0080600`.
-- `resource`: the ontology the id came from.
+- `id`: a CURIE from **Disease Ontology (DOID), MONDO or NCIt** (`DOID:0080600`, `MONDO:0005068`,
+  `NCIT:C27996`), looked up through OLS (§7). SNOMED is allowed but not on OLS: use it only when a
+  document gives the code.
+- `resource`: the ontology name (`Disease Ontology`, `MONDO`, `NCI Thesaurus`).
 
 ## 4. `best_biomarker_role`
 
 ```
-[ { "role": "diagnostic" } ]
+[ { "role": "diagnostic" }, { "role": "prognostic" } ]
 ```
 
 Valid roles (lowercase): `diagnostic`, `prognostic`, `predictive`, `monitoring`, `safety`,
-`susceptibility/risk`, `pharmacodynamic/response`. See `best-definitions.md`.
+`susceptibility/risk`, `pharmacodynamic/response`. One entry per role the study supports; how to
+choose them is in `best-definitions.md`.
 
 ## 5. `biomarker_component[]`
 
@@ -95,39 +98,34 @@ e.g. `Increased level of protein TNNI3/UPKB:P19429`.
 - **Aspect:** level, expression, activity, concentration, mutation
 - A bare entity name is **not** a biomarker — the change concept is mandatory.
 
-**`assessed_entity_type`** — report in **all lowercase**. Allowed values only:
+**`assessed_entity_type`**, all lowercase, allowed values only:
 
-`protein`, `gene`, `DNA`, `RNA`, `cell`, `lipid`, `glycan`, `metabolite`, `element`,
-`image`, `condition`
+`protein`, `gene`, `dna`, `rna`, `cell`, `lipid`, `glycan`, `metabolite`, `element`, `image`,
+`condition`
 
-## 7. ⭐ Accession lookup — where the id comes from
+More specific kinds (peptide, protein complex, gene (mutation), miRNA, carbohydrate, lipoprotein,
+chemical element) keep their own resource chain in §7 but are written as their parent type
+(`python scripts/biomarker_accessions.py` shows the mapping).
 
-The provider supplies the **name** (from the clinical documents); the **accession** must be
-looked up using the entity type. Use the resource in order of preference; fall back to the
-next only if the preferred resource has no entry.
+## 7. Accession lookup
 
-Nested by entity type → resource (in order of preference):
+The documents give the entity **name**; the record needs a **CURIE**.
 
-- **protein** → UniProt (UPKB) → PDB → PRO → NCIt
-- **peptide** → PRO
-- **protein complex** → PRO → GO
-- **gene** → NCBI
-- **gene (mutation)** → NCBI dbSNP
-- **DNA** → NCIt
-- **RNA** → HGNC → RNA Central (RNAC)
-- **miRNA** → miRBase (MRB)
-- **glycan** → GlyTouCan (GTC) → PubChem
-- **carbohydrate** → ChEBI
-- **metabolite** → PubChem (PCCID) → ChEBI
-- **lipoprotein** → ChEBI
-- **chemical element** → PubChem (PCCID) → NCIt
-- **cell** → CO → NCIt
+1. Pick the entity type (§6). Run `python scripts/biomarker_accessions.py` for its resource chain,
+   in order of preference. A `*` marks resources the OLS MCP server can resolve.
+2. Look the entity up **only through the OLS MCP server** (its search tool). Take the first
+   resource in the chain that OLS has a match for.
+3. Convert the OLS term id to a CURIE with `curie_from_ols()` in that script:
+   - a Protein Ontology term named by a UniProt accession, `PR_P19429`, becomes `UPKB:P19429`
+   - every other term, `GO_0005861`, `DOID_5844` or `NCIT_C16612`, becomes `GO:0005861`,
+     `DOID:5844`, `NCIT:C16612`
+4. If OLS has no entry (UniProt-only, PubChem, GlyTouCan, miRBase, dbSNP, NCBI Gene, LOINC, ...),
+   leave the id `PLACEHOLDER` and list it in the hand-over report. Never guess an id, and never use
+   another lookup route.
+5. If the OLS MCP server is not connected, tell the user before going on.
 
-Other ids:
-
-- **Condition accession** — Disease Ontology / MONDO / SNOMED / NCIt (§3).
-- **Specimen** — UBERON CURIE + LOINC (when a specimen is carried).
-- Prefix convention in the id: e.g. UniProt → `UPKB:P19429`.
+Write every identifier as a CURIE (`PREFIX:local`), in the BMKB record and in the tBCO
+(`target.analyte_identifiers[].curie`). Specimens use UBERON (`UBERON:0001977`, blood serum).
 
 ## 8. `entity_normal_ranges[]` (optional)
 

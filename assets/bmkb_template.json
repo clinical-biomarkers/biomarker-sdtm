@@ -5,35 +5,33 @@
   "//_note_3": "(biomarker_id, *_md5, biomarker_id_new, source_list) — BMKB assigns those.",
   "//_note_4": "Reference: bmkb-model.md v2.0.0",
   "//_note_5": "==============================================================================",
-
   "//_condition_help": "id = CURIE from DOID/MONDO/SNOMED/NCIt; name lowercase; resource = ontology.",
   "condition": {
-    "id": "DOID:5844",
-    "name": "acute myocardial infarction",
-    "resource": "Disease Ontology"
+    "id": "PLACEHOLDER - DOID/MONDO/NCIT CURIE from OLS",
+    "name": "PLACEHOLDER - lowercase name",
+    "resource": "PLACEHOLDER - ontology name"
   },
-
   "//_role_help": "Valid: diagnostic, prognostic, predictive, monitoring, safety, susceptibility/risk, pharmacodynamic/response.",
   "best_biomarker_role": [
-    { "role": "monitoring" }
+    {
+      "role": "PLACEHOLDER - BEST role; add one entry per role the study supports"
+    }
   ],
-
   "//_component_help": "Five fields only. assessed_entity_type is lowercase from the fixed set. biomarker = '{change} {aspect} of {entity_type} {symbol}/{id}'.",
   "biomarker_component": [
     {
       "component_index": "1",
       "entity_index": "1",
-      "assessed_biomarker_entity_id": "UPKB:P19429",
-      "assessed_entity_type": "protein",
-      "biomarker": "Increased level of protein TNNI3/UPKB:P19429"
+      "assessed_biomarker_entity_id": "PLACEHOLDER - entity CURIE from OLS, e.g. UPKB:P19429",
+      "assessed_entity_type": "PLACEHOLDER - protein | gene | dna | rna | cell | lipid | glycan | metabolite | element | image | condition (lowercase; run scripts/biomarker_accessions.py)",
+      "biomarker": "PLACEHOLDER - {change} {aspect} of {entity_type} {symbol}/{CURIE}"
     }
   ],
-
   "//_entity_normal_ranges_help": "Optional. Age/sex-stratified population norms. Informative only.",
   "entity_normal_ranges": [
     {
-      "entity_name": "Troponin I, cardiac muscle",
-      "entity_id": "UPKB:P19429",
+      "entity_name": "PLACEHOLDER",
+      "entity_id": "PLACEHOLDER",
       "source": [
         {
           "source_name": "PLACEHOLDER",
@@ -42,8 +40,8 @@
             {
               "age_grp": "PLACEHOLDER",
               "sex": "PLACEHOLDER",
-              "n_val": 0,
-              "units": "ng/mL",
+              "n_val": null,
+              "units": "PLACEHOLDER",
               "mean_val": null,
               "median_val": null,
               "sd_val": null,
@@ -60,7 +58,6 @@
       ]
     }
   ],
-
   "//_provenance_help": "Who supplied the record. Single object, not a list.",
   "provenance": {
     "provider": "PLACEHOLDER - submitting organisation",

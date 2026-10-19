@@ -3,11 +3,10 @@
 
 1. Runs each script's ``--self-test`` in a subprocess, in dependency order
    (``record_set_to_sdtm`` writes the TSVs that ``sdtm_to_record_set`` reads).
-2. Gold comparison: converts the gold Troponin I record set
-   (examples/troponin_I/*.json) to LB / SUPPLB / BM, using the raw lab results
-   from fixtures/troponin_I/07_lab_results.csv as the result values, and
-   compares every cell against Troponin_I_SDTM.xlsx for the same subject.
-   DM is not compared: neither BCO supplies it (the converter passes it through).
+2. Gold comparison: converts the gold Troponin I record set (both subjects)
+   to LB / SUPPLB / BM, with study data built from the fixture CSVs, and
+   compares every cell against Troponin_I_SDTM.xlsx. DM is not compared: it is
+   passed through from the study data unchanged.
 
 Exit code: 0 if everything passes, 1 otherwise.
 
@@ -42,14 +41,9 @@ SELF_TESTS = [
     "sdtm_to_record_set.py",  # reads the TSVs record_set_to_sdtm.py writes
 ]
 
-# Evidence comes from the study documents (context of use), not the record set.
-GOLD_EVIDENCE = ["PMID:19710485"]
-
 # Cells where the converter is right and the gold xlsx is not. Each entry is
 # reported but not counted as a failure; remove it once the xlsx is corrected.
-KNOWN_GOLD_DEVIATIONS = {
-    ("LB", "LBBLFL"): "B11: SDTMIG allows only Y or null; xlsx still has N",
-}
+KNOWN_GOLD_DEVIATIONS: dict[tuple[str, str], str] = {}
 
 
 # ---------------------------------------------------------------------------
@@ -104,23 +98,30 @@ def _same(a: Any, b: Any) -> bool:
         return str(a) == str(b)
 
 
-def _lab_results(rbco: dict, subjid: str) -> list[dict]:
-    """Result values for one subject from the lab's CSV, keyed to rBCO idvarval."""
-    by_specimen = {m["specimen_id"]: int(m["idvarval"])
-                   for m in fwd._sorted_measurements(rbco)}
+def study_data_from_fixtures() -> dict:
+    """The study-data intermediate an agent would build from the two fixture CSVs.
+
+    Shows the column mapping the lab files need (their headers are lab-native,
+    not SDTM): samp_id -> specimen_id, subject -> USUBJID suffix, result as
+    reported, Years -> YEARS, gender -> sex, Germany -> DEU.
+    """
+    study_id = "BM-2026-01"
+    dm = []
+    with open(os.path.join(_FIXTURES, "08_demographics.csv"), newline="") as f:
+        for row in csv.DictReader(f):
+            dm.append({"usubjid": f"{study_id}-{row['subject']}", "subjid": row["subject"],
+                       "siteid": row["site"], "age": int(row["age"]), "ageu": row["age_unit"].upper(),
+                       "sex": row["gender"], "country": {"Germany": "DEU"}.get(row["country"], row["country"]),
+                       "rfstdtc": row["first_visit_dt"]})
     results = []
     with open(os.path.join(_FIXTURES, "07_lab_results.csv"), newline="") as f:
         for row in csv.DictReader(f):
-            if row["subject"] != subjid or row["samp_id"] not in by_specimen:
-                continue
-            raw = row["result"].strip()
-            try:
-                numeric = float(raw)
-            except ValueError:
-                numeric = None
-            results.append({"idvarval": by_specimen[row["samp_id"]],
-                            "lborres": raw, "lbstresc": raw, "lbstressn": numeric})
-    return results
+            results.append({"usubjid": f"{study_id}-{row['subject']}", "specimen_id": row["samp_id"],
+                            "result": row["result"].strip(), "unit": row["unit"]})
+    return {"study": {"studyid": study_id, "category": "CHEMISTRY"},
+            "claim": {"bmid": "BM-001", "bmver": "1.0", "asserted_by": "Sponsor Biomarker Review Board",
+                      "assertion_date": "2026-09-01", "evidence": ["PMID:19710485"]},
+            "dm": dm, "results": results}
 
 
 def compare_gold() -> tuple[int, list[str], list[str]]:
@@ -130,24 +131,11 @@ def compare_gold() -> tuple[int, list[str], list[str]]:
     except ImportError:
         return 0, ["openpyxl is not installed (pip install openpyxl)"], []
 
-    tbco = fwd._load_json(os.path.join(_GOLD, "Troponin_I_tBCO.json"))
-    rbco = fwd._load_json(os.path.join(_GOLD, "Troponin_I_patient1_rBCO.json"))
-    bmkb = fwd._load_json(os.path.join(_GOLD, "Troponin_I_biomarkerKB.json"))
-    ext_r = rbco["extension_domain"][0]["assay_run_extension"]
-    studyid, usubjid = ext_r["studyid"], ext_r["usubjid"]
-    subjid = usubjid.rsplit("-", 1)[-1]
+    tbco, rbcos, bmkb = fwd.gold_inputs()
+    ds = fwd.convert(tbco, rbcos, bmkb, study_data_from_fixtures())
 
-    lb = fwd.build_lb(tbco, rbco, _lab_results(rbco, subjid), studyid, usubjid)
-    supplb = fwd.build_supplb(tbco, rbco, lb, studyid, usubjid)
-    bm = fwd.build_bm(tbco, bmkb, studyid, fwd._lb_grpid(tbco), evidence=GOLD_EVIDENCE)
-
-    wb = openpyxl.load_workbook(os.path.join(_GOLD, "Troponin_I_SDTM.xlsx"),
-                                data_only=True)
-    gold = {
-        "LB": [r for r in _xlsx_sheet(wb, "LB") if r["USUBJID"] == usubjid],
-        "SUPPLB": [r for r in _xlsx_sheet(wb, "SUPPLB") if r["USUBJID"] == usubjid],
-        "BM": _xlsx_sheet(wb, "BM"),
-    }
+    wb = openpyxl.load_workbook(os.path.join(_GOLD, "Troponin_I_SDTM.xlsx"), data_only=True)
+    gold = {name: _xlsx_sheet(wb, name) for name in ("LB", "SUPPLB", "BM")}
 
     n = 0
     failures: list[str] = []
@@ -179,9 +167,9 @@ def compare_gold() -> tuple[int, list[str], list[str]]:
                     cmp(domain, k, col, ours_by[k].get(col, "<missing column>"),
                         theirs_by[k][col])
 
-    cmp_rows("LB", lb, gold["LB"], ("LBSEQ",))
-    cmp_rows("SUPPLB", supplb, gold["SUPPLB"], ("IDVAR", "IDVARVAL", "QNAM"))
-    cmp_rows("BM", bm, gold["BM"], ("BMID",))
+    cmp_rows("LB", ds["LB"], gold["LB"], ("USUBJID", "LBSEQ"))
+    cmp_rows("SUPPLB", ds["SUPPLB"], gold["SUPPLB"], ("USUBJID", "IDVAR", "IDVARVAL", "QNAM"))
+    cmp_rows("BM", ds["BM"], gold["BM"], ("BMID",))
     return n, failures, known
 
 

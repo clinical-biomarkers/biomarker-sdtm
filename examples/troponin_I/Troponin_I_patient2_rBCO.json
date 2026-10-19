@@ -1,0 +1,483 @@
+{
+  "object_id": "https://biocomputeobject.org/PLACEHOLDER_Troponin_I_patient2_rBCO/1.0.0",
+  "spec_version": "https://w3id.org/ieee/ieee-2791-schema/2791object.json",
+  "etag": "dc15f6d3368709400c8be43037762345c36938af7ff884030fd328026904f877",
+  "provenance_domain": {
+    "name": "Cardiac troponin I, subject BM-2026-01-002, run R-2026-0316-01",
+    "version": "1.0",
+    "license": "https://creativecommons.org/licenses/by/4.0/",
+    "created": "2026-10-07T12:00:00.000000Z",
+    "modified": "2026-10-07T12:00:00.000000Z",
+    "derived_from": "https://biocomputeobject.org/PLACEHOLDER_Troponin_I_tBCO/1.0.0",
+    "contributors": [
+      {
+        "name": "Jeet Vora",
+        "affiliation": "The George Washington University",
+        "contribution": [
+          "createdBy",
+          "authoredBy"
+        ],
+        "email": "vorajeet@gmail.com"
+      },
+      {
+        "name": "Jane Doe",
+        "affiliation": "The George Washington University",
+        "contribution": [
+          "contributedBy"
+        ],
+        "email": "PLACEHOLDER@gwu.edu"
+      },
+      {
+        "name": "PLACEHOLDER - performing laboratory",
+        "affiliation": "PLACEHOLDER - laboratory name and accreditation identifier",
+        "contribution": [
+          "providedBy"
+        ],
+        "email": "PLACEHOLDER@lab.example"
+      }
+    ],
+    "review": [
+      {
+        "status": "in-review",
+        "reviewer_comment": "Run identity and specimen record reviewed against the governing specification.",
+        "date": "2026-10-07T12:00:00.000000Z",
+        "reviewer": {
+          "name": "Jane Doe",
+          "affiliation": "The George Washington University",
+          "contribution": [
+            "curatedBy"
+          ],
+          "email": "PLACEHOLDER@gwu.edu"
+        }
+      }
+    ]
+  },
+  "usability_domain": [
+    "Cardiac troponin I was measured in serum for subject BM-2026-01-002 in study BM-2026-01 at three time points - admission, 3 hours, 6 hours - all three specimens drawn on 2026-03-16 and analysed in run R-2026-0316-01 under a single calibration. Controls were accepted before any result was released. No specimen was rejected and no measurement was repeated."
+  ],
+  "extension_domain": [
+    {
+      "extension_schema": "PLACEHOLDER - https://<org>/biocompute/extension_domain/1.0.0/assay_run/assay_run_extension.json",
+      "assay_run_extension": {
+        "run_id": "R-2026-0316-01",
+        "studyid": "BM-2026-01",
+        "usubjid": "BM-2026-01-002",
+        "specification": {
+          "tbco_object_id": "https://biocomputeobject.org/PLACEHOLDER_Troponin_I_tBCO/1.0.0",
+          "spec_id": "TNNI3_TNIULTRA",
+          "spec_version": "1.0.0",
+          "conformance": "conforms"
+        },
+        "laboratory": {
+          "name": "PLACEHOLDER - performing laboratory",
+          "accreditation": "PLACEHOLDER - CLIA or ISO 15189 identifier"
+        },
+        "instrument": {
+          "serial_number": "PLACEHOLDER - instrument serial number",
+          "software_version": "PLACEHOLDER - instrument software version"
+        },
+        "consumables": {
+          "reagent_lot": "PLACEHOLDER - assay reagent pack lot",
+          "calibrator_lot": "PLACEHOLDER - calibrator set lot"
+        },
+        "calibration": {
+          "calibrated_dtc": "PLACEHOLDER - calibration date and time",
+          "accepted": true,
+          "record": "PLACEHOLDER - calibration record identifier"
+        },
+        "quality_control": {
+          "accepted": true,
+          "record": "PLACEHOLDER - control log identifier for the shift covering this run"
+        },
+        "measurements": [
+          {
+            "idvar": "LBSEQ",
+            "idvarval": 1,
+            "lbtestcd": "TROPONI3",
+            "visit": "ADMISSION",
+            "specimen_id": "S-0002-T1",
+            "specimen_type": "SERUM",
+            "collection_dtc": "2026-03-16T13:55",
+            "analysis_dtc": "PLACEHOLDER - instrument timestamp",
+            "censor_state": "below_lod",
+            "repeated": false,
+            "visitnum": 1
+          },
+          {
+            "idvar": "LBSEQ",
+            "idvarval": 2,
+            "lbtestcd": "TROPONI3",
+            "visit": "3 HOURS",
+            "specimen_id": "S-0002-T2",
+            "specimen_type": "SERUM",
+            "collection_dtc": "2026-03-16T16:55",
+            "analysis_dtc": "PLACEHOLDER - instrument timestamp",
+            "censor_state": "detected_below_lloq",
+            "repeated": false,
+            "visitnum": 2
+          },
+          {
+            "idvar": "LBSEQ",
+            "idvarval": 3,
+            "lbtestcd": "TROPONI3",
+            "visit": "6 HOURS",
+            "specimen_id": "S-0002-T3",
+            "specimen_type": "SERUM",
+            "collection_dtc": "2026-03-16T19:55",
+            "analysis_dtc": "PLACEHOLDER - instrument timestamp",
+            "censor_state": "quantifiable",
+            "repeated": false,
+            "visitnum": 3
+          }
+        ],
+        "deviations": [],
+        "note": "execution_domain is specified for computational workflows; for a bench assay it is mapped by analogy, with the instrument's assay definition file as the script and the instrument's environmental settings as the environment variables."
+      }
+    },
+    {
+      "extension_schema": "PLACEHOLDER - https://<org>/biocompute/extension_domain/1.0.0/sdtm/sdtm_extension.json",
+      "sdtm_extension": {
+        "standard": "SDTMIG v3.4 over SDTM v2.1",
+        "datasets": [
+          {
+            "name": "LB",
+            "file": "lb.xpt",
+            "rows_for_this_subject": 3
+          },
+          {
+            "name": "SUPPLB",
+            "file": "supplb.xpt",
+            "rows_for_this_subject": 6
+          }
+        ],
+        "supplb_derivation": [
+          {
+            "qnam": "ASSAYNAM",
+            "qorig": "Assigned",
+            "qeval": "VENDOR",
+            "resolves_in": "tBCO",
+            "path": "assay.assay_name"
+          },
+          {
+            "qnam": "ASSAYPLT",
+            "qorig": "Assigned",
+            "qeval": "VENDOR",
+            "resolves_in": "tBCO",
+            "path": "assay.platform"
+          },
+          {
+            "qnam": "RBCOID",
+            "qorig": "Assigned",
+            "qeval": "SPONSOR",
+            "resolves_in": "rBCO",
+            "path": "object_id"
+          },
+          {
+            "qnam": "CENSOR",
+            "qorig": "Derived",
+            "qeval": "SPONSOR",
+            "resolves_in": "rBCO",
+            "path": "measurements[].censor_state"
+          }
+        ],
+        "note": "The analytical limits are standard LB variables (LBLLOD, LBLLOQ, LBULOQ) and resolve in the specification. Of the four supplemental qualifiers, ASSAYNAM and ASSAYPLT resolve in the specification, RBCOID in this run, and CENSOR is derived per measurement against the specification's limits.",
+        "lb_derivation": [
+          {
+            "variable": "LBLLOD",
+            "resolves_in": "tBCO",
+            "path": "analytical_performance.limit_of_detection.value"
+          },
+          {
+            "variable": "LBLLOQ",
+            "resolves_in": "tBCO",
+            "path": "analytical_performance.limit_of_quantitation.value"
+          },
+          {
+            "variable": "LBULOQ",
+            "resolves_in": "tBCO",
+            "path": "analytical_performance.upper_limit_of_quantitation.value"
+          }
+        ]
+      }
+    }
+  ],
+  "description_domain": {
+    "keywords": [
+      "cardiac troponin I",
+      "TNNI3",
+      "UPKB:P19429",
+      "immunoassay",
+      "run record",
+      "SDTM",
+      "LB",
+      "SUPPLB",
+      "DOID:5844"
+    ],
+    "xref": [
+      {
+        "namespace": "uniprot",
+        "name": "UniProtKB",
+        "ids": [
+          "P19429"
+        ],
+        "access_time": "2026-10-07T12:00:00.000000"
+      },
+      {
+        "namespace": "loinc",
+        "name": "LOINC",
+        "ids": [
+          "10839-9"
+        ],
+        "access_time": "2026-10-07T12:00:00.000000"
+      },
+      {
+        "namespace": "doid",
+        "name": "Human Disease Ontology",
+        "ids": [
+          "DOID:5844"
+        ],
+        "access_time": "2026-10-07T12:00:00.000000"
+      },
+      {
+        "namespace": "uberon",
+        "name": "Uberon",
+        "ids": [
+          "UBERON:0001977"
+        ],
+        "access_time": "2026-10-07T12:00:00.000000"
+      }
+    ],
+    "pipeline_steps": [
+      {
+        "step_number": 1,
+        "name": "Specimen collection",
+        "description": "Venous blood drawn into a serum separator tube at each scheduled time point and labelled.",
+        "version": "1.0",
+        "prerequisite": [],
+        "input_list": [
+          {
+            "uri": "PLACEHOLDER - specimen collection record"
+          }
+        ],
+        "output_list": [
+          {
+            "uri": "PLACEHOLDER - labelled specimen tubes"
+          }
+        ]
+      },
+      {
+        "step_number": 2,
+        "name": "Specimen processing",
+        "description": "Clotted, centrifuged and serum separated within the window the specification allows.",
+        "version": "1.0",
+        "prerequisite": [
+          {
+            "name": "Specimen collection",
+            "uri": {
+              "uri": "PLACEHOLDER"
+            }
+          }
+        ],
+        "input_list": [
+          {
+            "uri": "PLACEHOLDER - labelled specimen tubes"
+          }
+        ],
+        "output_list": [
+          {
+            "uri": "PLACEHOLDER - serum aliquots"
+          }
+        ]
+      },
+      {
+        "step_number": 3,
+        "name": "Analysis",
+        "description": "Serum analysed under an accepted calibration and an accepted control record, using the assay definition the specification names.",
+        "version": "1.0",
+        "prerequisite": [
+          {
+            "name": "Specimen processing",
+            "uri": {
+              "uri": "PLACEHOLDER"
+            }
+          }
+        ],
+        "input_list": [
+          {
+            "uri": "PLACEHOLDER - serum aliquots"
+          }
+        ],
+        "output_list": [
+          {
+            "uri": "PLACEHOLDER - instrument result export"
+          }
+        ]
+      },
+      {
+        "step_number": 4,
+        "name": "Review, censoring and release",
+        "description": "Results checked against the control record, censoring state derived against the specification's limits, then released.",
+        "version": "1.0",
+        "prerequisite": [
+          {
+            "name": "Analysis",
+            "uri": {
+              "uri": "PLACEHOLDER"
+            }
+          }
+        ],
+        "input_list": [
+          {
+            "uri": "PLACEHOLDER - instrument result export"
+          }
+        ],
+        "output_list": [
+          {
+            "uri": "PLACEHOLDER - released laboratory report"
+          }
+        ]
+      },
+      {
+        "step_number": 5,
+        "name": "SDTM record generation",
+        "description": "Released concentrations mapped to LB records; run and specification context mapped to SUPPLB using the derivation table in the SDTM extension.",
+        "version": "1.0",
+        "prerequisite": [
+          {
+            "name": "Review, censoring and release",
+            "uri": {
+              "uri": "PLACEHOLDER"
+            }
+          }
+        ],
+        "input_list": [
+          {
+            "uri": "PLACEHOLDER - released laboratory report"
+          },
+          {
+            "uri": "dm.xpt"
+          }
+        ],
+        "output_list": [
+          {
+            "uri": "lb.xpt"
+          },
+          {
+            "uri": "supplb.xpt"
+          }
+        ]
+      }
+    ]
+  },
+  "execution_domain": {
+    "script": [
+      {
+        "uri": {
+          "uri": "PLACEHOLDER - assay definition file as loaded on the instrument",
+          "filename": "tniultra_assay_definition.xml"
+        }
+      }
+    ],
+    "script_driver": "PLACEHOLDER - instrument system software",
+    "software_prerequisites": [
+      {
+        "name": "PLACEHOLDER - instrument system software",
+        "version": "PLACEHOLDER - installed version",
+        "uri": {
+          "uri": "PLACEHOLDER - vendor software record"
+        }
+      },
+      {
+        "name": "PLACEHOLDER - SDTM transformation script",
+        "version": "PLACEHOLDER - version and repository commit",
+        "uri": {
+          "uri": "PLACEHOLDER - sponsor code repository"
+        }
+      }
+    ],
+    "external_data_endpoints": [
+      {
+        "name": "PLACEHOLDER - laboratory information system",
+        "url": "PLACEHOLDER - laboratory system endpoint"
+      },
+      {
+        "name": "Assay specification (tBCO)",
+        "url": "https://biocomputeobject.org/PLACEHOLDER_Troponin_I_tBCO/1.0.0"
+      }
+    ],
+    "environment_variables": {
+      "reagent_compartment_temperature_c": "PLACEHOLDER - recorded value",
+      "incubation_temperature_c": "PLACEHOLDER - recorded value"
+    }
+  },
+  "io_domain": {
+    "input_subdomain": [
+      {
+        "uri": {
+          "uri": "https://biocomputeobject.org/PLACEHOLDER_Troponin_I_tBCO/1.0.0",
+          "filename": "Troponin_I_tBCO.json",
+          "access_time": "2026-10-07T12:00:00.000000"
+        }
+      },
+      {
+        "uri": {
+          "uri": "PLACEHOLDER - submission dataset location",
+          "filename": "dm.xpt",
+          "access_time": "2026-10-07T12:00:00.000000"
+        }
+      },
+      {
+        "uri": {
+          "uri": "PLACEHOLDER - instrument result export for this run",
+          "filename": "instrument_export_R-2026-0316-01.csv",
+          "access_time": "2026-10-07T12:00:00.000000"
+        }
+      },
+      {
+        "uri": {
+          "uri": "PLACEHOLDER - calibration and control log for this run",
+          "filename": "qc_log_R-2026-0316-01.pdf",
+          "access_time": "2026-10-07T12:00:00.000000"
+        }
+      }
+    ],
+    "output_subdomain": [
+      {
+        "mediatype": "application/x-sas-xport",
+        "uri": {
+          "uri": "PLACEHOLDER - submission dataset location",
+          "filename": "lb.xpt"
+        }
+      },
+      {
+        "mediatype": "application/x-sas-xport",
+        "uri": {
+          "uri": "PLACEHOLDER - submission dataset location",
+          "filename": "supplb.xpt"
+        }
+      },
+      {
+        "mediatype": "application/xml",
+        "uri": {
+          "uri": "PLACEHOLDER - data definition document for the datasets above",
+          "filename": "define.xml"
+        }
+      }
+    ]
+  },
+  "error_domain": {
+    "empirical_error": {
+      "quality_control_accepted": true,
+      "measurements_below_lod": 1,
+      "measurements_detected_below_lloq": 1,
+      "measurements_above_uloq": 0,
+      "measurements_repeated": 0,
+      "specimens_rejected": 0
+    },
+    "algorithmic_error": {
+      "concentration_assignment": "interpolated from the calibration against the manufacturer's stored master curve, which is not independently auditable from this object",
+      "censoring": "derived, so it cannot disagree with the reported concentration",
+      "cross_platform_comparability": "cardiac troponin I is not standardised across manufacturers and no certified primary reference material exists, so these results are not interchangeable with another manufacturer's assay"
+    }
+  }
+}

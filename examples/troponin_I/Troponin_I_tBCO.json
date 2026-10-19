@@ -1,7 +1,7 @@
 {
   "object_id": "https://biocomputeobject.org/PLACEHOLDER_Troponin_I_tBCO/1.0.0",
   "spec_version": "https://w3id.org/ieee/ieee-2791-schema/2791object.json",
-  "etag": "bfddc5e232a17fc8a98411121b46ff6eb21ec36d7af6b75bca3d9a60d5c385d0",
+  "etag": "fe39db28b376b7fd3291e7e3e3e96648012cc4e4211d4ca3af1b9edad2ec97c5",
   "provenance_domain": {
     "name": "Assay standard for the cardiac troponin I assay (TnI-Ultra, ADVIA Centaur XP)",
     "version": "1.0.0",
@@ -56,10 +56,11 @@
         "spec_version": "1.0.0",
         "target": {
           "analyte_name": "Troponin I, cardiac muscle",
+          "lbtestcd": "TROPONI3",
+          "lbtest": "Troponin I Type 3",
           "analyte_identifiers": [
             {
-              "namespace": "UniProtKB",
-              "accession": "P19429"
+              "curie": "UPKB:P19429"
             }
           ],
           "entity_type": "protein",
@@ -81,9 +82,9 @@
           "loinc_code": "10839-9"
         },
         "specimen_requirements": {
-          "specimen_type": "BLOOD (PLACEHOLDER - serum vs plasma not stated in source)",
-          "specimen_curie": "UBERON:0000178",
-          "container_additive": "PLACEHOLDER",
+          "specimen_type": "SERUM",
+          "specimen_curie": "UBERON:0001977",
+          "container_additive": "serum separator tube (SST), gel barrier",
           "minimum_volume": "PLACEHOLDER",
           "handling": "PLACEHOLDER - centrifugation and separation requirements",
           "stability": "PLACEHOLDER - time and temperature limits before assay"
@@ -214,6 +215,30 @@
                 "value": "rise or fall",
                 "tunable": true
               }
+            ],
+            "role": "diagnostic",
+            "display": "Value > 0.04 ng/mL AND rise or fall >= 30% within 6 h"
+          },
+          {
+            "rule_id": "R2",
+            "role": "prognostic",
+            "outcome": "adverse outcome (death, myocardial infarction or revascularisation) within 30 days",
+            "expression": "admission value > reference limit",
+            "display": "Admission value > 0.04 ng/mL",
+            "components": [
+              {
+                "type": "threshold",
+                "param": "applied_reference_limit_type",
+                "value": "99th percentile",
+                "tunable": true
+              },
+              {
+                "type": "window",
+                "param": "outcome_window_days",
+                "value": 30,
+                "unit": "days",
+                "tunable": false
+              }
             ]
           }
         ],
@@ -227,7 +252,7 @@
         "reporting_convention": {
           "unit": "ng/mL",
           "decimal_places": 3,
-          "censoring": "values below the limit of quantitation are reported as '<LLOQ' and excluded from numeric summaries"
+          "censoring": "values below the limit of detection are reported as '<LoD' with no numeric result; values between the LoD and the LLOQ keep their numeric value and are flagged detected_below_lloq; values above the ULOQ are reported as '>ULOQ'"
         }
       }
     }
@@ -375,38 +400,37 @@
     {
       "param": "applied_reference_limit_type",
       "value": "99th percentile",
-      "unit": "",
-      "rule": "R1"
+      "step": "4"
     },
     {
       "param": "relative_change_threshold_pct",
-      "value": "30",
-      "unit": "%",
-      "rule": "R1"
+      "value": "30 %",
+      "step": "4"
     },
     {
       "param": "relative_change_window_hours",
-      "value": "6",
-      "unit": "hours",
-      "rule": "R1"
+      "value": "6 hours",
+      "step": "4"
     },
     {
       "param": "relative_change_direction",
       "value": "rise or fall",
-      "unit": "",
-      "rule": "R1"
+      "step": "4"
     },
     {
-      "param": "below_lloq_handling",
-      "value": "values below the limit of quantitation are reported as '<LLOQ' and excluded from numeric summaries",
-      "unit": "",
-      "rule": "reporting"
+      "param": "outcome_window_days",
+      "value": "30 days",
+      "step": "4"
+    },
+    {
+      "param": "censoring_handling",
+      "value": "values below the limit of detection are reported as '<LoD' with no numeric result; values between the LoD and the LLOQ keep their numeric value and are flagged detected_below_lloq; values above the ULOQ are reported as '>ULOQ'",
+      "step": "2"
     }
   ],
   "io_domain": {
     "input_subdomain": [
       {
-        "mediatype": "application/pdf",
         "uri": {
           "uri": "PLACEHOLDER - Siemens instructions for use, ADVIA Centaur TnI-Ultra",
           "filename": "tniultra_instructions_for_use.pdf",
@@ -414,7 +438,6 @@
         }
       },
       {
-        "mediatype": "application/pdf",
         "uri": {
           "uri": "https://doi.org/10.1056/NEJMoa0903515",
           "filename": "keller_2009_supplementary_appendix.pdf",
@@ -422,7 +445,6 @@
         }
       },
       {
-        "mediatype": "application/pdf",
         "uri": {
           "uri": "PLACEHOLDER - Gutenberg Heart Study reference-limit derivation (n=5000)",
           "filename": "reference_limit_derivation.pdf",
@@ -430,7 +452,6 @@
         }
       },
       {
-        "mediatype": "application/pdf",
         "uri": {
           "uri": "PLACEHOLDER - local laboratory method validation report",
           "filename": "method_validation_report.pdf",

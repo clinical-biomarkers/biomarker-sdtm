@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """validate_bco.py — Validate a BioCompute Object against IEEE 2791.
 
-Checks structural completeness (all 8 domains, required fields), etag
-well-formedness, and conformance to the shipped IEEE 2791 JSON Schemas
-(references/schemas/, via ``jsonschema``). Schema violations are errors.
-Unfilled PLACEHOLDER values and NOTE lines are reported as **warnings** — a
-record may legitimately not supply every field.
+Fails a file on: a missing IEEE 2791 domain; a missing domain this skill
+requires (parametric_domain, error_domain, extension_domain holding
+assay_protocol_extension or assay_run_extension); an empty required
+provenance field; a malformed etag; any IEEE 2791 JSON Schema violation
+(references/schemas/, via ``jsonschema``, which is required).
+
+Reports as warnings (UNFILLED ...): PLACEHOLDER strings, and assay limits
+(LoD, LLOQ, ULOQ, reference limits) that are null or 0.
 
 Usage
 -----
@@ -82,8 +85,13 @@ REQUIRED_ROOT = {
     "provenance_domain", "usability_domain",
     "description_domain", "execution_domain", "io_domain",
 }
-# Additional recommended domains
-RECOMMENDED_DOMAINS = {"extension_domain", "parametric_domain", "error_domain"}
+# Optional in IEEE 2791 but required by this skill (parametric_domain: tBCO only)
+SKILL_REQUIRED_DOMAINS = {"extension_domain", "error_domain"}
+TBCO_REQUIRED_DOMAINS = {"parametric_domain"}
+# Each BCO carries exactly one of these extensions
+SKILL_EXTENSIONS = ("assay_protocol_extension", "assay_run_extension")
+# Provenance fields that must hold a non-empty string
+NONEMPTY_PROVENANCE = ("name", "version", "license")
 
 # Required sub-fields per domain
 REQUIRED_PROVENANCE = {"name", "version", "created", "modified", "contributors", "license"}
@@ -112,13 +120,15 @@ def validate_bco(obj: dict, filepath: str = "<unknown>") -> list[str]:
     if missing_root:
         errors.append(f"MISSING required root fields: {sorted(missing_root)}")
 
-    # Warn about missing recommended domains (not errors)
-    missing_recommended = RECOMMENDED_DOMAINS - present
-    for d in sorted(missing_recommended):
-        errors.append(f"NOTE: missing recommended domain: {d} (optional per IEEE 2791)")
+    # Domains IEEE 2791 makes optional but this skill requires
+    is_tbco = any(isinstance(i, dict) and "assay_protocol_extension" in i
+                  for i in obj.get("extension_domain") or [])
+    required_here = SKILL_REQUIRED_DOMAINS | (TBCO_REQUIRED_DOMAINS if is_tbco else set())
+    for d in sorted(required_here - present):
+        errors.append(f"MISSING domain required by this skill: {d}")
 
     # Unexpected top-level keys
-    allowed = REQUIRED_ROOT | RECOMMENDED_DOMAINS
+    allowed = REQUIRED_ROOT | SKILL_REQUIRED_DOMAINS | TBCO_REQUIRED_DOMAINS
     extra = present - allowed
     if extra:
         errors.append(f"NOTE: unexpected top-level keys: {sorted(extra)}")
@@ -154,6 +164,10 @@ def validate_bco(obj: dict, filepath: str = "<unknown>") -> list[str]:
     # 5) provenance_domain
     # -----------------------------------------------------------------------
     _check_sub(obj, "provenance_domain", REQUIRED_PROVENANCE, errors)
+    prov = obj.get("provenance_domain") if isinstance(obj.get("provenance_domain"), dict) else {}
+    for field in NONEMPTY_PROVENANCE:
+        if field in prov and (not isinstance(prov[field], str) or not prov[field].strip()):
+            errors.append(f"provenance_domain.{field} is empty")
 
     # -----------------------------------------------------------------------
     # 6) usability_domain (array)
@@ -200,6 +214,10 @@ def validate_bco(obj: dict, filepath: str = "<unknown>") -> list[str]:
     # -----------------------------------------------------------------------
     ext = obj.get("extension_domain", [])
     if isinstance(ext, list):
+        if "extension_domain" in obj and not any(
+                isinstance(item, dict) and any(k in item for k in SKILL_EXTENSIONS)
+                for item in ext):
+            errors.append(f"extension_domain holds neither {' nor '.join(SKILL_EXTENSIONS)}")
         for i, item in enumerate(ext):
             if not isinstance(item, dict):
                 errors.append(f"extension_domain[{i}] is not an object")
@@ -220,19 +238,13 @@ def validate_bco(obj: dict, filepath: str = "<unknown>") -> list[str]:
                 continue
             for field in REQUIRED_PARAM_ITEM:
                 if field not in item:
-                    # step is technically required by schema but the Troponin I
-                    # templates use rule instead — non-fatal note
-                    if field == "step":
-                        errors.append(f"NOTE: parametric_domain[{i}] missing "
-                                      f"'{field}' (has: {sorted(item.keys())})")
-                    else:
-                        errors.append(f"parametric_domain[{i}] missing required "
-                                      f"field '{field}'")
+                    errors.append(f"parametric_domain[{i}] missing required field '{field}'")
 
     # -----------------------------------------------------------------------
     # 13) PLACEHOLDER detection — recursive string scan
     # -----------------------------------------------------------------------
     _check_placeholders(obj, errors)
+    _check_limits(obj, errors)
 
     # -----------------------------------------------------------------------
     # 14) Schema validation (IEEE 2791 JSON Schema)
@@ -282,6 +294,27 @@ def _check_placeholders(obj: Any, errors: list[str], path: str = "$") -> None:
     elif isinstance(obj, str):
         if "PLACEHOLDER" in obj:
             errors.append(f"UNFILLED PLACEHOLDER at {path}: {obj[:80]!r}")
+
+
+def _check_limits(obj: dict, errors: list[str]) -> None:
+    """Flag assay limits left null or 0 (an unfilled number, per the missing-value policy)."""
+    for item in obj.get("extension_domain", []) or []:
+        ape = item.get("assay_protocol_extension") if isinstance(item, dict) else None
+        if not isinstance(ape, dict):
+            continue
+        ap = ape.get("analytical_performance") or {}
+        for key in ("limit_of_detection", "limit_of_quantitation", "upper_limit_of_quantitation"):
+            v = (ap.get(key) or {}).get("value")
+            if v is None or v == 0:
+                errors.append(f"UNFILLED LIMIT analytical_performance.{key}.value is {v!r}; "
+                              f"SDTM conversion needs it")
+        for i, rl in enumerate(ape.get("reference_limits") or []):
+            if isinstance(rl, dict) and (rl.get("value") is None or rl.get("value") == 0):
+                errors.append(f"UNFILLED LIMIT reference_limits[{i}].value is {rl.get('value')!r}")
+
+
+def _is_warning(message: str) -> bool:
+    return message.startswith("UNFILLED") or message.startswith("NOTE:")
 
 
 def _do_schema_validation(obj: dict, errors: list[str]) -> None:
@@ -339,9 +372,7 @@ def main() -> int:
         # Structural errors fail the file. Unfilled PLACEHOLDERs and NOTE: lines
         # are warnings — a record may legitimately not supply every field (the
         # gold examples carry PLACEHOLDERs for exactly that reason).
-        struct_errors = [m for m in messages
-                         if not m.startswith("UNFILLED PLACEHOLDER")
-                         and not m.startswith("NOTE:")]
+        struct_errors = [m for m in messages if not _is_warning(m)]
         warnings = [m for m in messages if m not in struct_errors]
 
         if struct_errors:
@@ -349,10 +380,13 @@ def main() -> int:
             for e in struct_errors:
                 print(f"  - {e}")
             if warnings:
-                print(f"  ({len(warnings)} warning(s) — unfilled PLACEHOLDER / note)")
+                print(f"  ({len(warnings)} warning(s) — unfilled values / notes)")
             exit_code = 1
         else:
-            suffix = f" ({len(warnings)} warning(s) — unfilled PLACEHOLDER / note)" if warnings else ""
+            suffix = f" ({len(warnings)} warning(s) — unfilled values / notes)" if warnings else ""
+            for w in warnings:
+                if w.startswith("UNFILLED LIMIT"):
+                    print(f"  ! {w}")
             print(f"PASS: {filepath}{suffix}")
 
     return exit_code
@@ -363,90 +397,52 @@ def main() -> int:
 # ---------------------------------------------------------------------------
 
 
-def _is_bco(obj: dict) -> bool:
-    """Heuristic: is this an IEEE 2791 BCO object?"""
-    return "object_id" in obj and "provenance_domain" in obj and "spec_version" in obj and "etag" in obj
-
-
 def _self_test() -> int:
-    """Validate the Troponin I gold files."""
-    print("=" * 60)
-    print("  validate_bco.py — Self-test")
-    print("=" * 60)
+    """Gold BCOs must pass; negative controls must fail or warn."""
+    import copy
+    gold_dir = os.path.join(_HERE, "..", "examples", "troponin_I")
+    failures: list[str] = []
 
-    tropo_dir = os.path.join(
-        _HERE, "..", "examples", "troponin_I"
-    )
-
-    gold_files = [
-        "Troponin_I_tBCO.json",
-        "Troponin_I_patient1_rBCO.json",
-        "Troponin_I_biomarkerKB.json",
-    ]
-    files_to_check = []
-    for fname in gold_files:
-        path = os.path.join(tropo_dir, fname)
-        if os.path.exists(path):
-            files_to_check.append((fname, path))
-
-    if not files_to_check:
-        print("[SKIP] No Troponin I files found")
-        return 0
-
-    total_bco_passed = 0
-    total_bco = 0
-    non_bco_files = []
-
-    for fname, path in sorted(files_to_check, key=lambda x: x[0]):
-        with open(path) as f:
-            try:
-                obj = json.load(f)
-            except json.JSONDecodeError as e:
-                print(f"  INVALID JSON: {fname}: {e}")
-                continue
-
-        if not _is_bco(obj):
-            non_bco_files.append(fname)
-            print(f"  SKIP (non-BCO): {fname}")
-            continue
-
-        total_bco += 1
-        errors = validate_bco(obj, path)
-        label = fname
-
-        # Separate structural errors from PLACEHOLDER warnings and notes
-        struct_errors = [e for e in errors
-                         if not e.startswith("UNFILLED PLACEHOLDER")
-                         and not e.startswith("NOTE:")]
-        placeholder_count = len([e for e in errors if e.startswith("UNFILLED PLACEHOLDER")])
-        note_count = len([e for e in errors if e.startswith("NOTE:")])
-
-        if struct_errors:
-            print(f"\n  FAIL: {label}")
-            for e in struct_errors:
-                print(f"    - {e}")
-            if placeholder_count:
-                print(f"    ({placeholder_count} unfilled PLACEHOLDER(s) — expected in templates)")
-        else:
-            total_bco_passed += 1
-            note_text = ""
-            if placeholder_count:
-                note_text += f" {placeholder_count} PLACEHOLDER(s)"
-            if note_count:
-                note_text += f" {note_count} note(s)"
-            if note_text:
-                note_text = " (" + note_text.strip() + " — expected)"
-            print(f"  PASS: {label}{note_text}")
-
-    n_files = len(files_to_check)
-    n_bco = total_bco
-    n_non_bco = len(non_bco_files)
-    print(f"\n  {n_files} file(s): {n_bco} BCO + {n_non_bco} non-BCO (BMKB); "
-          f"{total_bco_passed}/{n_bco} BCO files valid (structure + schema)")
-    print("=" * 60)
-
-    if total_bco_passed < total_bco:
+    gold = sorted(glob.glob(os.path.join(gold_dir, "*_tBCO.json")) +
+                  glob.glob(os.path.join(gold_dir, "*_rBCO.json")))
+    if not gold:
+        print("[SELF-TEST] FAILED: no gold BCOs found")
         return 1
+    for path in gold:
+        with open(path) as f:
+            obj = json.load(f)
+        errs = [m for m in validate_bco(obj, path) if not _is_warning(m)]
+        if errs:
+            failures.append(f"{os.path.basename(path)} rejected:\n      " + "\n      ".join(errs))
+
+    with open(os.path.join(gold_dir, "Troponin_I_tBCO.json")) as f:
+        tbco = json.load(f)
+
+    def must_fail(label: str, mutate) -> None:
+        o = copy.deepcopy(tbco)
+        mutate(o)
+        if not [m for m in validate_bco(o) if not _is_warning(m)]:
+            failures.append(f"did not reject: {label}")
+
+    must_fail("missing extension_domain", lambda o: o.pop("extension_domain"))
+    must_fail("missing parametric_domain", lambda o: o.pop("parametric_domain"))
+    must_fail("empty provenance name", lambda o: o["provenance_domain"].update(name=""))
+    must_fail("bad etag", lambda o: o.update(etag="abc"))
+    must_fail("key outside the schema",
+              lambda o: o["io_domain"]["input_subdomain"][0].update(mediatype="x"))
+
+    o = copy.deepcopy(tbco)
+    o["extension_domain"][0]["assay_protocol_extension"]["analytical_performance"][
+        "upper_limit_of_quantitation"]["value"] = 0.0
+    if not any(m.startswith("UNFILLED LIMIT") for m in validate_bco(o)):
+        failures.append("did not flag a 0.0 ULOQ as unfilled")
+
+    if failures:
+        print("[SELF-TEST] FAILED:")
+        for f in failures:
+            print(f"  - {f}")
+        return 1
+    print(f"[SELF-TEST] PASSED — {len(gold)} gold BCO(s) valid; 6 negative controls caught")
     return 0
 
 

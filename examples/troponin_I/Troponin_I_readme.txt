@@ -2,31 +2,31 @@
 TROPONIN I BIOMARKER PACKAGE - README
 ===============================================================================
 
-A worked example of a cardiac troponin I biomarker in four files: what the
-biomarker is, how it is measured, what happened when it was measured for one
-patient, and the study data.
+A worked example of a cardiac troponin I biomarker in five files: what the
+biomarker is, how it is measured, what happened when it was measured for each
+of two subjects, and the study data.
 
 Analyte : cardiac troponin I (TNNI3, UniProtKB P19429)
 Assay   : TnI-Ultra on the Siemens ADVIA Centaur XP
-Context : acute myocardial infarction (DOID:5844)
+Context : acute myocardial infarction (DOID:5844); roles diagnostic and prognostic
 
 
 -------------------------------------------------------------------------------
 FILES
 -------------------------------------------------------------------------------
 
-Troponin_I_Biomarker.json        what the biomarker is
+Troponin_I_biomarkerKB.json      what the biomarker is
 Troponin_I_tBCO.json             how to measure it
-Troponin_I_patient1_rBCO.json    assay information patient 1
+Troponin_I_patient1_rBCO.json    the analytical run for subject 001
+Troponin_I_patient2_rBCO.json    the analytical run for subject 002
 Troponin_I_SDTM.xlsx              the study data
 
 
 -------------------------------------------------------------------------------
-Troponin_I_Biomarker.json
+Troponin_I_biomarkerKB.json
 -------------------------------------------------------------------------------
 
-The BiomarkerKB API JSON response for troponin I, structured according to the
-BiomarkerKB data model. It describes the biomarker itself, independently of
+The BiomarkerKB provider-side submission record for troponin I. It describes the biomarker itself, independently of
 any assay or patient: the entity being measured, its controlled-vocabulary
 term, its BEST biomarker role and the condition that role applies to.
 
@@ -67,14 +67,14 @@ study uses one assay per biomarker.
 
 
 -------------------------------------------------------------------------------
-Troponin_I_patient1_rBCO.json
+Troponin_I_patient1_rBCO.json, Troponin_I_patient2_rBCO.json
 -------------------------------------------------------------------------------
 
-Run BioCompute Object (rBCO). What actually happened on the instrument for one
-patient.
+Run BioCompute Objects (rBCOs). What actually happened on the instrument for
+one subject in one analytical run.
 
-One rBCO per patient, so a study has one tBCO and as many rBCOs as there are
-patients.
+One rBCO per subject per analytical run, so a study has one tBCO and at least
+as many rBCOs as there are subjects.
 
 Contents:
 
@@ -91,7 +91,8 @@ Anything the tBCO already states is not repeated here: the limits, the
 reference limits, the platform and the sampling schedule are read from the
 tBCO through that link.
 
-The file holds no troponin concentrations. Those are in the study data.
+The file holds no troponin concentrations and no demographics. BCOs are
+public-facing; individual results live only in the study data.
 
 
 -------------------------------------------------------------------------------
@@ -104,15 +105,16 @@ record types, one per tab:
   DM       one record per subject: age, sex, country, reference start date
 
   LB       one record per troponin result: the value as reported and in
-           standard units, the reference limit, specimen type, method, LOINC
+           standard units, the reference limit, the limits of detection and
+           quantitation (LBLLOD, LBLLOQ, LBULOQ), specimen type, method, LOINC
            code, visit and collection time
 
   SUPPLB   the qualifiers LB has no variable for, attached to the LB records
-           they describe: assay name and platform, the limits of detection
-           and quantitation, the identifier of the rBCO for that run, and the
-           censoring state of each result
+           they describe: assay name and platform, the identifier of the rBCO
+           for that run, and the censoring state of each result
 
-  BM       the biomarker context layer: the entity, its role and condition,
+  BM       the biomarker context layer, one row per claim (diagnostic and
+           prognostic): the entity, its role and condition,
            the assay, the interpretation rule, the identifier of the tBCO,
            and pointers to the LB records being described
 
@@ -133,8 +135,8 @@ HOW THEY RELATE
   measure      happened
 
   one per      one per      one per
-  biomarker    patient      study
-  assay
+  biomarker    subject      study
+  assay        per run
 
 
 -------------------------------------------------------------------------------

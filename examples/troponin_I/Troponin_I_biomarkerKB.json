@@ -6,7 +6,10 @@
   },
   "best_biomarker_role": [
     {
-      "role": "monitoring"
+      "role": "diagnostic"
+    },
+    {
+      "role": "prognostic"
     }
   ],
   "biomarker_component": [

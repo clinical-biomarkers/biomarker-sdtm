@@ -51,7 +51,7 @@ Each full run produces a **biomarker record set** that travel with the data:
 
 **¹ tBCO**: the _template_ BioCompute Object, the assay specification
 
-**² rBCO**: the _run_ BioCompute Object, one record per patient run
+**² rBCO**: the _run_ BioCompute Object, one record per subject per analytical run
 
 **³ BMKB**: the BiomarkerKB record, what the biomarker means in controlled vocabulary
 

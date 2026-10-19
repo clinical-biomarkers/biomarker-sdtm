@@ -8,6 +8,97 @@ Concise record of what changed and when. Newest first. Times are America/New_Yor
 
 ---
 
+## 2026-10-19 15:59 (supervisor/opus-5.5 high) remaining owner decisions applied: scripts, templates, gold, docs
+
+`python scripts/run_checks.py` now passes: 7/7 self-tests, and 346/346 cells against the gold xlsx
+for both subjects.
+
+**Owner decisions**
+- **B02** Results between the LoD and the LLOQ keep their numeric value. Below the LoD
+  (`<LoD`) and above the ULOQ (`>ULOQ`), LBSTRESN is null.
+- **B04** Entity types are lowercase. Every allowed type has a resource chain. Sub-types
+  (miRNA, peptide, ...) map to a parent type.
+- **B08** BCOs and BMKB records are public-facing. The reverse direction no longer tries to
+  rebuild results or DM, and prints what was lost.
+- **H04** Accessions are looked up through the OLS MCP server only. `PR_<UniProt>` becomes
+  `UPKB:<acc>`, and output uses CURIE style.
+- **H07** Troponin I is **diagnostic + prognostic** (Keller 2009: diagnostic accuracy plus
+  30-day outcome), not monitoring. The serial-sampling heuristic is removed, and
+  best-definitions.md now has per-role requirements.
+- **P05** One rBCO per subject per analytical run. There is now a gold rBCO for patient 2.
+- **rBCO scope** (asked in session) Per subject as before, with no demographics or result
+  values.
+
+**Scripts**
+- `record_set_to_sdtm.py` rewritten:
+  - Inputs: several `--rbco` files (B03/F01) and one `--study-data` intermediate (H02;
+    `assets/study_data_template.json`) that replaces `results.json` and `dm.json`.
+  - A preflight lists every converter-critical gap and exits 1 (P04). The converter also
+    stops when a reported result contradicts its rBCO censor state.
+  - LBTESTCD/LBTEST are taken from tBCO `target.lbtestcd`/`lbtest` (CDISC CT) (B09). There
+    are no invented defaults (B10).
+  - LBLLOD, LBLLOQ, LBULOQ, VISITNUM and LBLOBXFL are written to LB; SUPPLB keeps only
+    ASSAYNAM, ASSAYPLT, RBCOID and CENSOR (B11, P02). LBNRIND uses strict comparison and
+    handles censored values (B13).
+  - BM gets one row per BEST role, with BMRULE from the role's rule `display` (H07).
+  - `--domain` writes IS, GF, CP, BS or PC by prefix (H06). TSV headers are fixed and quoting
+    is minimal (B18).
+- `sdtm_to_record_set.py` rewritten:
+  - One rBCO per subject (B03). No troponin hard-codes (B09).
+  - Shares helpers with the forward script (R03).
+  - Its self-test is a real round trip against the gold JSON and also runs both validators
+    (B07).
+- `censor_state.py`: the B02 policy; NaN, null, unordered and 0.0 limits are rejected (B06).
+  Reverse parsing handles `< 0.006` and `<6e-3` (B19).
+- `validate_bco.py`:
+  - Fails on missing error_domain or extension_domain, on a missing parametric_domain (tBCO
+    only), and on empty provenance name, version or license (B16).
+  - Warns on null or 0 limits (B06).
+- `validate_bmkb.py`:
+  - Checks roles against BEST; PLACEHOLDER is a warning, not a pass (B15).
+  - Checks the `biomarker` statement pattern and that it agrees with the entity type and id.
+- `finalize_draft.py --check` fails when `//_` keys remain (B17).
+- `run_checks.py` compares both subjects, with study data built from the fixture CSVs.
+
+**Templates and gold** (H09, N01, B14, P10)
+- tBCO/rBCO templates are schema-clean and carry `lbtestcd`/`lbtest`, CURIE identifiers, rule
+  `role` + `display`, and `visitnum`. The BMKB template is now PLACEHOLDER rather than the gold
+  answer.
+- Gold tBCO/rBCO/BMKB/xlsx re-adjudicated:
+  - TROPONI3 / Troponin I Type 3
+  - SERUM, and limits moved into LB
+  - LBBLFL Y/null, VISITNUM added
+  - roles diagnostic + prognostic (BM-001, BM-002, with a new R2 30-day rule)
+  - the condition is lowercase
+  - the fixture context-of-use was updated to match
+- Adjudication log: TROPI-001/004/005 reattributed to the converter and resolved. TROPI-007/008
+  were added for the gold corrections.
+
+**IEEE 2791 schema violations found in the Troponin I example** (now fixed; 22 in total)
+- tBCO (14):
+  - `io_domain.input_subdomain[0-3]`: `mediatype` is not allowed on inputs (outputs do require
+    it)
+  - `parametric_domain[0-4]`: the required `step` was missing, and `unit` and `rule` are not
+    allowed (5 × 2)
+- rBCO (8):
+  - `io_domain.input_subdomain[0-3]`: `mediatype` not allowed
+  - `description_domain.pipeline_steps[1-4].prerequisite`: plain strings instead of
+    `{name, uri}` objects
+- Both templates carried the same patterns, so every agent-written BCO would have failed once
+  B05 started enforcing the schema.
+
+**Docs**
+- SKILL.md is 253 lines. It covers the study-data step, the domain choice, OLS lookup and the
+  role rules.
+- New `references/required-fields.md`: what requires each field, and what to do when it is
+  missing (H05).
+- `sdtmig-guide.md` 2.1: navigation by search and PDF page range (H06), and SUPPLB reduced to
+  four qualifiers.
+- `pitfalls.md` 2.1 and `bmkb-model.md` 2.2 were updated to match.
+
+**Not done:** F05 (live accession lookup with cache write-back) is largely superseded by H04
+(OLS through MCP) and has no owner note. F03 (evaluation set) is proposed as its own session.
+
 ## 2026-10-19 12:10 (supervisor/opus-5.5 high) major decisions applied: docs, templates
 
 - **SKILL.md** rewritten and shortened. It now opens with a per-task routing

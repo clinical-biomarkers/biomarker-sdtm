@@ -17,7 +17,8 @@
 ## 2. Context
 
 - **Condition:** Acute myocardial infarction
-- **BEST biomarker role:** **diagnostic** (with a secondary **monitoring** application via serial sampling)
+- **BEST biomarker role:** **diagnostic** (primary), with a secondary **prognostic** claim: an elevated
+  admission value predicts adverse outcome (death, MI or revascularisation) within 30 days
 - **Intended context of use:** early diagnosis and risk stratification of acute myocardial
   infarction in adults presenting to a chest-pain unit with suspected AMI.
 

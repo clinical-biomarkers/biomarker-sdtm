@@ -1,24 +1,18 @@
 #!/usr/bin/env python3
-"""sdtm_to_record_set.py — Convert SDTM tabular datasets back to the record set.
+"""sdtm_to_record_set.py — SDTM TSVs → record set (tBCO, one rBCO per subject per run, BMKB).
 
-Takes four TSV files (DM, LB, SUPPLB, BM) and reconstructs the three JSON
-files that form the BCO record set: tBCO, rBCO, and BMKB record.
-
-Designed to round-trip with record_set_to_sdtm.py: the triple (tBCO, rBCO, BMKB)
-when converted to SDTM and back should produce a semantically equivalent triple.
+BCOs and BMKB records are public-facing and never hold demographics or result
+values (owner decision B08), so this direction rebuilds only what those
+objects carry. It does not rebuild results or DM, and it prints what it could
+not reconstruct.
 
 Usage
 -----
-    python sdtm_to_record_set.py \\
-        --dm sdtm/DM.tsv \\
-        --lb sdtm/LB.tsv \\
-        --supplb sdtm/SUPPLB.tsv \\
-        --bm sdtm/BM.tsv \\
-        --output-dir ./reconstructed
+    python scripts/sdtm_to_record_set.py --lb sdtm/LB.tsv --supp sdtm/SUPPLB.tsv \\
+        --bm sdtm/BM.tsv --output-dir ./reconstructed [--domain LB]
+    python scripts/sdtm_to_record_set.py --self-test
 
-    python sdtm_to_record_set.py --self-test
-
-Mapping reference: references/sdtmig-guide.md (Reverse Direction section).
+Mapping reference: references/sdtmig-guide.md §7.
 """
 
 from __future__ import annotations
@@ -27,772 +21,315 @@ import csv
 import json
 import os
 import sys
+from collections import OrderedDict
 from typing import Any, Optional
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from censor_state import derive_censor_state_from_sdtm  # noqa: E402
-from finalize_draft import compute_etag  # noqa: E402
-from record_set_to_sdtm import _make_grpid  # noqa: E402
-
-
-# ---------------------------------------------------------------------------
-# Paths
-# ---------------------------------------------------------------------------
+from finalize_draft import finalize  # noqa: E402
+from record_set_to_sdtm import filled  # noqa: E402
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_TROPI = os.path.join(_HERE, "..", "examples", "troponin_I")
+SPEC_VERSION = "https://w3id.org/ieee/ieee-2791-schema/2791object.json"
+PH = "PLACEHOLDER"
+
+#: Condition CURIE prefix -> ontology name for BMKB condition.resource.
+RESOURCE_NAMES = {"DOID": "Disease Ontology", "MONDO": "MONDO", "NCIT": "NCI Thesaurus",
+                  "SNOMED": "SNOMED CT"}
+
+#: Not reconstructed, by design or because SDTM does not carry it.
+LOSSY = ["result values (LBORRES/LBSTRESN): never stored in a BCO",
+         "demographics (DM): never stored in a BCO or BMKB record",
+         "BMEVID and BMASSRT: the BMKB submission record has no field for them",
+         "instrument, lots, calibration and QC detail of each run",
+         "IFU detail of the assay (handling, stability, interferences, imprecision)"]
 
 
-# ---------------------------------------------------------------------------
-# TSV loader
-# ---------------------------------------------------------------------------
-
-def _read_tsv(path: str) -> list[dict[str, str]]:
-    """Read a tab-separated file (quote-aware) and return a list of dicts.
-
-    Handles the quoted TSV format used by the Troponin I example.
-    Keys are stripped of surrounding quotes if any; values are stripped.
-    """
+def read_tsv(path: str) -> list[dict[str, str]]:
+    """Read a TSV written by record_set_to_sdtm.py (minimal or full quoting)."""
     if not os.path.exists(path):
-        print(f"[ERROR] TSV file not found: {path}")
-        sys.exit(1)
+        raise ValueError(f"TSV not found: {path}")
     with open(path, newline="") as f:
-        raw = f.read()
-
-    reader = csv.DictReader(
-        raw.splitlines(), delimiter="\t", quotechar='"', quoting=csv.QUOTE_ALL
-    )
-
-    rows: list[dict[str, str]] = []
-    for row in reader:
-        cleaned = {}
-        for k, v in row.items():
-            key = k.strip('" ')
-            val = v.strip('" ') if v else ""
-            cleaned[key] = val
-        rows.append(cleaned)
-    return rows
+        return [{k.strip(): (v or "").strip() for k, v in row.items()}
+                for row in csv.DictReader(f, delimiter="\t")]
 
 
-# ---------------------------------------------------------------------------
-# SUPPLB grouping helpers
-# ---------------------------------------------------------------------------
-
-def _group_supplb(
-    supplb: list[dict[str, str]],
-) -> tuple[dict[str, dict[str, str]], dict[str, dict[str, str]]]:
-    """Split SUPPLB rows into assay-level (keyed on LBGRPID) and per-result (keyed on LBSEQ).
-
-    Returns (assay_quals, result_quals).
-    - assay_quals: {grpid: {QNAM: QVAL, ...}} — pooled across all rows with IDVAR=LBGRPID
-    - result_quals: {lbseq_str: {QNAM: QVAL, ...}} — per LBSEQ
-    """
-    assay_quals: dict[str, dict[str, str]] = {}
-    # Per-result groups: {idvarval: {qnam: qval}}
-    result_groups: dict[str, dict[str, str]] = {}
-
-    for row in supplb:
-        idvar = row.get("IDVAR", "")
-        idvarval = row.get("IDVARVAL", "")
-        qnam = row.get("QNAM", "")
-        qval = row.get("QVAL", "")
-
-        if idvar == "LBGRPID":
-            if idvarval not in assay_quals:
-                assay_quals[idvarval] = {}
-            assay_quals[idvarval][qnam] = qval
-        elif idvar == "LBSEQ":
-            if idvarval not in result_groups:
-                result_groups[idvarval] = {}
-            result_groups[idvarval][qnam] = qval
-        # else skip
-
-    return assay_quals, result_groups
-
-
-# ---------------------------------------------------------------------------
-# Reconstruct tBCO
-# ---------------------------------------------------------------------------
-
-def reconstruct_tbco(
-    lb_rows: list[dict[str, str]],
-    supplb: list[dict[str, str]],
-    bm_rows: list[dict[str, str]],
-    studyid: str,
-) -> dict[str, Any]:
-    """Rebuild a tBCO JSON from SDTM data.
-
-    Uses the first LB row for assay-level constants, SUPPLB for qualifiers,
-    and BM for entity-level assay metadata.
-
-    Returns a dict matching the IEEE 2791 structure with assay_protocol_extension.
-    """
-    if not lb_rows:
-        # Fall back to BM for assay info
-        first_lb: dict[str, str] = {}
-    else:
-        first_lb = lb_rows[0]
-
-    assay_quals, _result_quals = _group_supplb(supplb)
-
-    # Pick the first assay group
-    grpid = first_lb.get("LBGRPID", "UNKNOWN")
-    assay_info: dict[str, str] = assay_quals.get(grpid, {})
-
-    assay_name = assay_info.get("ASSAYNAM", first_lb.get("LBNAM", ""))
-    assay_platform = assay_info.get("ASSAYPLT", "")
-    method = first_lb.get("LBMETHOD", "")
-    manufacturer = first_lb.get("LBNAM", "")
-    loinc = first_lb.get("LBLOINC", "")
-    lbtestcd = first_lb.get("LBTESTCD", "")
-    lbtest = first_lb.get("LBTEST", "")
-    lbspec = first_lb.get("LBSPEC", "SERUM")
-
-    # Reference limit
-    ref_hi_str = first_lb.get("LBSTNRHI", "")
-    ref_hi: Optional[float] = None
-    if ref_hi_str:
-        try:
-            ref_hi = float(ref_hi_str)
-        except ValueError:
-            pass
-
-    # Analytical performance from SUPPLB
-    lod: Optional[float] = None
-    lloq: Optional[float] = None
-    uloq: Optional[float] = None
-    lod_str = assay_info.get("LBLOD", "")
-    lloq_str = assay_info.get("LBLLOQ", "")
-    uloq_str = assay_info.get("LBULOQ", "")
+def _num(s: str) -> Optional[float]:
     try:
-        lod = float(lod_str) if lod_str else None
-        lloq = float(lloq_str) if lloq_str else None
-        uloq = float(uloq_str) if uloq_str else None
-    except ValueError:
-        pass
+        v = float(s)
+    except (TypeError, ValueError):
+        return None
+    return int(v) if v.is_integer() else v
 
-    # Unit
-    lborresu = first_lb.get("LBORRESU", "ng/mL")
 
-    # Determine analyte identifiers from LOINC / test name
-    analyte_name = lbtest if lbtest else lbtestcd
-    uniprot_id = ""
-    if lbtestcd == "TNNI3":
-        uniprot_id = "P19429"
+def _or_ph(v: Any) -> Any:
+    return v if filled(v) else PH
 
-    # Entity type
-    entity_type = "protein"
 
-    # Object ID — try from BM.BMBCOID, else construct
-    tbco_object_id = ""
-    if bm_rows:
-        tbco_object_id = bm_rows[0].get("BMBCOID", "")
-    if not tbco_object_id:
-        tbco_object_id = (
-            f"https://biocomputeobject.org/PLACEHOLDER_{assay_name}_tBCO/1.0.0"
-        )
+def _assay_quals(supp: list[dict], dom: str) -> dict[str, str]:
+    q: dict[str, str] = {}
+    for r in supp:
+        if r.get("IDVAR") == f"{dom}GRPID":
+            q.setdefault(r["QNAM"], r["QVAL"])
+    return q
 
-    # Rule from BM
-    rule_text = ""
-    if bm_rows:
-        rule_text = bm_rows[0].get("BMRULE", "")
 
-    # Build the tBCO JSON
-    tbco: dict[str, Any] = {
-        "object_id": tbco_object_id,
-        "spec_version": "https://w3id.org/ieee/ieee-2791-schema/2791object.json",
-        "etag": "PLACEHOLDER",
+def _skeleton(object_id: str, name: str, usability: str) -> dict:
+    """IEEE 2791 domains with PLACEHOLDER content (schema-valid once finalized)."""
+    return {
+        "object_id": object_id or PH, "spec_version": SPEC_VERSION, "etag": "",
         "provenance_domain": {
-            "name": f"Assay standard for {analyte_name} ({assay_name}, {assay_platform})",
-            "version": "1.0.0",
-            "license": "https://creativecommons.org/licenses/by/4.0/",
-            "created": "PLACEHOLDER",
-            "modified": "PLACEHOLDER",
-            "contributors": [
-                {
-                    "name": "PLACEHOLDER - Creator name",
-                    "affiliation": "PLACEHOLDER - Institution",
-                    "contribution": ["createdBy", "authoredBy"],
-                    "email": "PLACEHOLDER@institution.edu",
-                }
-            ],
-            "review": [],
-        },
-        "usability_domain": [
-            f"Reconstructed from SDTM for {studyid}.",
-        ],
-        "extension_domain": [
-            {
-                "extension_schema": "PLACEHOLDER - assay_protocol_extension schema URI",
-                "assay_protocol_extension": {
-                    "spec_id": f"{lbtestcd}_{_make_grpid(assay_name)}" if assay_name else "UNKNOWN",
-                    "spec_version": "1.0.0",
-                    "target": {
-                        "analyte_name": analyte_name,
-                        "analyte_identifiers": (
-                            [
-                                {
-                                    "namespace": "UniProtKB",
-                                    "accession": uniprot_id,
-                                }
-                            ]
-                            if uniprot_id
-                            else []
-                        ),
-                        "entity_type": entity_type,
-                        "measured_property": "mass concentration",
-                        "matrix": {
-                            "term": "blood",
-                            "curie": "UBERON:0000178",
-                        },
-                        "detects": f"Placeholder — {analyte_name} measurement.",
-                    },
-                    "assay": {
-                        "assay_name": assay_name if assay_name else "PLACEHOLDER",
-                        "manufacturer": manufacturer if manufacturer else "PLACEHOLDER",
-                        "platform": assay_platform if assay_platform else "PLACEHOLDER",
-                        "method": method if method else "PLACEHOLDER",
-                        "assay_generation": "sensitive",
-                        "regulatory_status": "investigational",
-                        "calibration_traceability": "PLACEHOLDER",
-                        "loinc_code": loinc,
-                    },
-                    "specimen_requirements": {
-                        "specimen_type": lbspec,
-                        "specimen_curie": "UBERON:0000178",
-                        "container_additive": "PLACEHOLDER",
-                        "minimum_volume": "PLACEHOLDER",
-                        "handling": "PLACEHOLDER",
-                        "stability": "PLACEHOLDER",
-                    },
-                    "subject_preconditions": [],
-                    "sampling_schedule": {
-                        "anchor": "PLACEHOLDER",
-                        "serial_required": False,
-                        "timepoints": [],
-                    },
-                    "analytical_performance": {
-                        "limit_of_detection": {"value": lod, "unit": lborresu},
-                        "limit_of_quantitation": {"value": lloq, "unit": lborresu},
-                        "upper_limit_of_quantitation": {"value": uloq, "unit": lborresu},
-                    },
-                    "reference_limits": (
-                        [{"direction": "upper", "value": ref_hi, "unit": lborresu}]
-                        if ref_hi is not None
-                        else []
-                    ),
-                    "interpretation_rules": (
-                        [{"expression": rule_text, "rule_id": "R1"}] if rule_text else []
-                    ),
-                    "reporting_convention": {
-                        "unit": lborresu,
-                        "decimal_places": "PLACEHOLDER",
-                    },
-                },
-            }
-        ],
-        "description_domain": {
-            "keywords": [analyte_name, lbtestcd, studyid, "SDTM", "reconstructed"],
-            "platform": [{"name": assay_platform}] if assay_platform else [],
-            "xref": [],
-            "pipeline_steps": [],
-        },
-        "execution_domain": {
-            "script": [],
-            "script_driver": "manual",
-            "software_prerequisites": [],
-            "external_data_endpoints": [],
-            "environment_variables": {},
-        },
-        "parametric_domain": [],
-        "io_domain": {
-            "input_subdomain": [],
-            "output_subdomain": [],
-        },
-        "error_domain": [],
+            "name": name, "version": "1.0.0", "license": PH, "created": PH, "modified": PH,
+            "contributors": [{"name": PH, "affiliation": PH, "contribution": ["createdBy"],
+                              "email": "PLACEHOLDER@example.org"}]},
+        "usability_domain": [usability],
+        "extension_domain": [],
+        "description_domain": {"keywords": [], "xref": [], "pipeline_steps": []},
+        "execution_domain": {"script": [], "script_driver": PH,
+                             "software_prerequisites": [{"name": PH, "version": PH, "uri": {"uri": PH}}],
+                             "external_data_endpoints": [], "environment_variables": {}},
+        "io_domain": {"input_subdomain": [], "output_subdomain": []},
+        "error_domain": {"empirical_error": {}, "algorithmic_error": {}},
     }
 
-    # etag — one canonical definition (see finalize_draft.py)
-    tbco["etag"] = compute_etag(tbco)
 
-    return tbco
+def reconstruct_tbco(rows: list[dict], supp: list[dict], bm: list[dict], dom: str) -> dict:
+    first = rows[0] if rows else {}
+    q = _assay_quals(supp, dom)
+    bm0 = bm[0] if bm else {}
+    g = lambda var: first.get(f"{dom}{var}", "")  # noqa: E731
+    unit = g("STRESU") or g("ORRESU")
+    limit = lambda v: {"value": v, "unit": _or_ph(unit)}  # noqa: E731
+    lod = _num(g("LLOD")) if g("LLOD") else _num(q.get("LBLOD", ""))
+    lloq = _num(g("LLOQ")) if g("LLOQ") else _num(q.get("LBLLOQ", ""))
+    uloq = _num(g("ULOQ")) if g("ULOQ") else _num(q.get("LBULOQ", ""))
+    ref = []
+    if _num(g("STNRHI")) is not None:
+        ref.append({"type": PH, "direction": "upper", "value": _num(g("STNRHI")), "unit": _or_ph(unit),
+                    "strata": [], "population": {"source": PH, "n": None}})
+    if _num(g("STNRLO")) is not None:
+        ref.append({"type": PH, "direction": "lower", "value": _num(g("STNRLO")), "unit": _or_ph(unit),
+                    "strata": [], "population": {"source": PH, "n": None}})
+    rules = [{"rule_id": f"R{i}", "role": r.get("BMROLE", "").lower(), "outcome": PH,
+              "expression": _or_ph(r.get("BMRULE")), "display": _or_ph(r.get("BMRULE")), "components": []}
+             for i, r in enumerate(bm, start=1)]
+    assay_name = q.get("ASSAYNAM") or bm0.get("BMASSAY", "")
+    t = _skeleton(bm0.get("BMBCOID", ""), f"Assay specification for {_or_ph(g('TEST'))} ({_or_ph(assay_name)})",
+                  "Reconstructed from SDTM. Only the fields SDTM carries are filled; the rest are PLACEHOLDER.")
+    t["extension_domain"] = [{"extension_schema": PH, "assay_protocol_extension": {
+        "spec_id": PH, "spec_version": "1.0.0",
+        "target": {"analyte_name": _or_ph(bm0.get("BMENTNM")), "lbtestcd": _or_ph(g("TESTCD")),
+                   "lbtest": _or_ph(g("TEST")),
+                   "analyte_identifiers": [{"curie": bm0["BMENTID"]}] if filled(bm0.get("BMENTID")) else [],
+                   "entity_type": _or_ph(bm0.get("BMENTTP")), "measured_property": PH,
+                   "matrix": {"term": PH, "curie": PH}, "detects": PH},
+        "assay": {"assay_name": _or_ph(assay_name), "manufacturer": _or_ph(g("NAM") or bm0.get("BMNAM")),
+                  "platform": _or_ph(q.get("ASSAYPLT") or bm0.get("BMPLAT")),
+                  "method": _or_ph(g("METHOD") or bm0.get("BMMETHOD")), "assay_generation": PH,
+                  "regulatory_status": PH, "calibration_traceability": PH, "loinc_code": _or_ph(g("LOINC"))},
+        "specimen_requirements": {"specimen_type": _or_ph(g("SPEC") or bm0.get("BMSPEC")),
+                                  "specimen_curie": PH, "container_additive": PH, "minimum_volume": PH,
+                                  "handling": PH, "stability": PH},
+        "subject_preconditions": [], "sampling_schedule": {"anchor": PH, "serial_required": None, "timepoints": []},
+        "analytical_performance": {"limit_of_detection": limit(lod), "limit_of_quantitation": limit(lloq),
+                                   "upper_limit_of_quantitation": limit(uloq)},
+        "reference_limits": ref, "interpretation_rules": rules,
+        "reporting_convention": {"unit": _or_ph(unit), "decimal_places": None, "censoring": PH}}}]
+    t["parametric_domain"] = []
+    return finalize(t)
 
 
-# ---------------------------------------------------------------------------
-# Reconstruct rBCO
-# ---------------------------------------------------------------------------
+def reconstruct_rbcos(rows: list[dict], supp: list[dict], tbco: dict, dom: str) -> list[dict]:
+    """One rBCO per (subject, run), measurements in --SEQ order, no result values."""
+    ap = tbco["extension_domain"][0]["assay_protocol_extension"]["analytical_performance"]
+    lod, lloq, uloq = (ap[k]["value"] for k in ("limit_of_detection", "limit_of_quantitation",
+                                                 "upper_limit_of_quantitation"))
+    run_ids = {r["USUBJID"]: r["QVAL"] for r in supp if r.get("QNAM") == "RBCOID"}
+    censor = {(r["USUBJID"], r["IDVARVAL"]): r["QVAL"] for r in supp
+              if r.get("QNAM") == "CENSOR" and r.get("IDVAR") == f"{dom}SEQ"}
+    by_subject: "OrderedDict[str, list[dict]]" = OrderedDict()
+    for r in rows:
+        by_subject.setdefault(r["USUBJID"], []).append(r)
+    out = []
+    for usubjid, subj_rows in by_subject.items():
+        meas = []
+        for r in sorted(subj_rows, key=lambda r: int(r[f"{dom}SEQ"])):
+            seq = r[f"{dom}SEQ"]
+            state = censor.get((usubjid, seq)) or derive_censor_state_from_sdtm(
+                r.get(f"{dom}ORRES", ""), r.get(f"{dom}STRESN", ""), lod, lloq, uloq)
+            meas.append({"idvar": f"{dom}SEQ", "idvarval": int(seq), "lbtestcd": r.get(f"{dom}TESTCD", ""),
+                         "visitnum": _num(r.get("VISITNUM", "")), "visit": r.get("VISIT", ""),
+                         "specimen_id": r.get(f"{dom}REFID", ""), "specimen_type": r.get(f"{dom}SPEC", ""),
+                         "collection_dtc": r.get(f"{dom}DTC", ""), "analysis_dtc": PH,
+                         "censor_state": state, "repeated": False})
+        counts = {s: sum(1 for m in meas if m["censor_state"] == s)
+                  for s in ("below_lod", "detected_below_lloq", "above_uloq")}
+        rb = _skeleton(run_ids.get(usubjid, ""), f"Run record, subject {usubjid}",
+                       f"Reconstructed from SDTM for subject {usubjid}. Instrument, lot, calibration and QC "
+                       f"detail are not in SDTM and are PLACEHOLDER.")
+        rb["provenance_domain"]["derived_from"] = tbco["object_id"]
+        rb["extension_domain"] = [{"extension_schema": PH, "assay_run_extension": {
+            "run_id": PH, "studyid": subj_rows[0].get("STUDYID", ""), "usubjid": usubjid,
+            "specification": {"tbco_object_id": tbco["object_id"], "spec_id": PH, "spec_version": "1.0.0",
+                              "conformance": PH},
+            "laboratory": {"name": PH, "accreditation": PH},
+            "instrument": {"serial_number": PH, "software_version": PH},
+            "consumables": {"reagent_lot": PH, "calibrator_lot": PH},
+            "calibration": {"calibrated_dtc": PH, "accepted": None, "record": PH},
+            "quality_control": {"accepted": None, "record": PH},
+            "measurements": meas, "deviations": []}}]
+        rb["error_domain"]["empirical_error"] = {f"measurements_{k}": v for k, v in counts.items()}
+        out.append(finalize(rb))
+    return out
 
-def reconstruct_rbco(
-    lb_rows: list[dict[str, str]],
-    supplb: list[dict[str, str]],
-    tbco: dict[str, Any],
-    studyid: str,
-    usubjid: str,
-) -> dict[str, Any]:
-    """Rebuild an rBCO JSON from SDTM data.
 
-    Uses LB rows for measurements, SUPPLB for assay qualifiers + CENSOR,
-    and tBCO for analytical limits (for censor derivation fallback).
-    """
-    if not lb_rows:
+def reconstruct_bmkb(bm: list[dict]) -> dict:
+    if not bm:
         return {}
-
-    assay_quals, result_quals = _group_supplb(supplb)
-    grpid = lb_rows[0].get("LBGRPID", "UNKNOWN")
-    assay_info = assay_quals.get(grpid, {})
-
-    # Analytical limits from tBCO SUPPLB for censor derivation
-    lod: Optional[float] = None
-    lloq: Optional[float] = None
-    uloq: Optional[float] = None
-    try:
-        lod = float(assay_info.get("LBLOD", "")) if assay_info.get("LBLOD") else None
-        lloq = float(assay_info.get("LBLLOQ", "")) if assay_info.get("LBLLOQ") else None
-        uloq = float(assay_info.get("LBULOQ", "")) if assay_info.get("LBULOQ") else None
-    except ValueError:
-        pass
-
-    # Also try from tbco analytical_performance
-    ext_t = (
-        tbco.get("extension_domain", [{}])[0]
-        .get("assay_protocol_extension", {})
-    )
-    ap = ext_t.get("analytical_performance", {})
-    if lod is None:
-        lod = ap.get("limit_of_detection", {}).get("value")
-    if lloq is None:
-        lloq = ap.get("limit_of_quantitation", {}).get("value")
-    if uloq is None:
-        uloq = ap.get("upper_limit_of_quantitation", {}).get("value")
-
-    # RBCOID from SUPPLB
-    rbco_object_id = assay_info.get("RBCOID", "")
-    if not rbco_object_id:
-        rbco_object_id = (
-            f"https://biocomputeobject.org/PLACEHOLDER_{usubjid}_rBCO/1.0.0"
-        )
-
-    # tbco object_id for derived_from
-    tbco_object_id = tbco.get("object_id", "")
-
-    # Derive run_id from first visit date
-    first_dtc = lb_rows[0].get("LBDTC", "")
-    run_id_parts = first_dtc[:10].replace("-", "") if first_dtc else "UNKNOWN"
-    run_id = f"R-{run_id_parts}-01"
-
-    # Build measurements from LB rows sorted by LBSEQ
-    measurements: list[dict[str, Any]] = []
-    for row in sorted(lb_rows, key=lambda r: int(r.get("LBSEQ", 0))):
-        lbseq = row.get("LBSEQ", "")
-        idvarval = int(lbseq) if lbseq else 0
-        visit = row.get("VISIT", "")
-        specimen_id = row.get("LBREFID", "")
-        specimen_type = row.get("LBSPEC", "SERUM")
-        collection_dtc = row.get("LBDTC", "")
-        lborres = row.get("LBORRES", "")
-        lbstressn_str = row.get("LBSTRESN", "")
-        lbtestcd = row.get("LBTESTCD", "")
-
-        # Get censor from SUPPLB result_quals (keyed on LBSEQ string)
-        censor_state = ""
-        if str(idvarval) in result_quals:
-            censor_state = result_quals[str(idvarval)].get("CENSOR", "")
-        if not censor_state:
-            censor_state = derive_censor_state_from_sdtm(
-                lborres, lbstressn_str, lod, lloq, uloq)
-
-        measurements.append({
-            "idvar": "LBSEQ",
-            "idvarval": idvarval,
-            "lbtestcd": lbtestcd,
-            "visit": visit,
-            "specimen_id": specimen_id,
-            "specimen_type": specimen_type,
-            "collection_dtc": collection_dtc,
-            "analysis_dtc": "PLACEHOLDER",
-            "censor_state": censor_state,
-            "repeated": False,
-        })
-
-    # Build rBCO JSON
-    rbco: dict[str, Any] = {
-        "object_id": rbco_object_id,
-        "spec_version": "https://w3id.org/ieee/ieee-2791-schema/2791object.json",
-        "etag": "PLACEHOLDER",
-        "provenance_domain": {
-            "name": f"Cardiac troponin I, subject {usubjid}, run {run_id}",
-            "version": "1.0",
-            "license": "https://creativecommons.org/licenses/by/4.0/",
-            "created": "PLACEHOLDER",
-            "modified": "PLACEHOLDER",
-            "derived_from": tbco_object_id,
-            "contributors": [
-                {
-                    "name": "PLACEHOLDER - Creator name",
-                    "affiliation": "PLACEHOLDER - Institution",
-                    "contribution": ["createdBy", "authoredBy"],
-                    "email": "PLACEHOLDER@institution.edu",
-                }
-            ],
-            "review": [],
-        },
-        "usability_domain": [
-            f"Reconstructed from SDTM for {studyid}, subject {usubjid}.",
-        ],
-        "extension_domain": [
-            {
-                "extension_schema": "PLACEHOLDER - assay_run_extension schema URI",
-                "assay_run_extension": {
-                    "run_id": run_id,
-                    "studyid": studyid,
-                    "usubjid": usubjid,
-                    "specification": {
-                        "tbco_object_id": tbco_object_id,
-                        "spec_id": ext_t.get("spec_id", "PLACEHOLDER"),
-                        "spec_version": "1.0.0",
-                        "conformance": "conforms",
-                    },
-                    "laboratory": {
-                        "name": "PLACEHOLDER - performing laboratory",
-                        "accreditation": "PLACEHOLDER",
-                    },
-                    "instrument": {
-                        "serial_number": "PLACEHOLDER",
-                        "software_version": "PLACEHOLDER",
-                    },
-                    "consumables": {
-                        "reagent_lot": "PLACEHOLDER",
-                        "calibrator_lot": "PLACEHOLDER",
-                    },
-                    "calibration": {
-                        "calibrated_dtc": "PLACEHOLDER",
-                        "accepted": True,
-                        "record": "PLACEHOLDER",
-                    },
-                    "quality_control": {
-                        "accepted": True,
-                        "record": "PLACEHOLDER",
-                    },
-                    "measurements": measurements,
-                    "deviations": [],
-                    "note": (
-                        "Reconstructed by sdtm_to_record_set.py. "
-                        "Instrument-level fields are PLACEHOLDER."
-                    ),
-                },
-            },
-            {
-                "extension_schema": "PLACEHOLDER - sdtm_extension schema URI",
-                "sdtm_extension": {
-                    "standard": "SDTMIG v3.4 over SDTM v2.1",
-                    "datasets": [
-                        {
-                            "name": "LB",
-                            "file": "lb.xpt",
-                            "rows_for_this_subject": len(lb_rows),
-                        },
-                        {
-                            "name": "SUPPLB",
-                            "file": "supplb.xpt",
-                            "rows_for_this_subject": len(supplb),
-                        },
-                    ],
-                    "supplb_derivation": [
-                        {"qnam": "ASSAYNAM", "qorig": "CRF", "qeval": "VENDOR",
-                         "resolves_in": "tBCO", "path": "assay.assay_name"},
-                        {"qnam": "ASSAYPLT", "qorig": "CRF", "qeval": "VENDOR",
-                         "resolves_in": "tBCO", "path": "assay.platform"},
-                        {"qnam": "LBLOD", "qorig": "CRF", "qeval": "VENDOR",
-                         "resolves_in": "tBCO",
-                         "path": "analytical_performance.limit_of_detection.value"},
-                        {"qnam": "LBLLOQ", "qorig": "CRF", "qeval": "VENDOR",
-                         "resolves_in": "tBCO",
-                         "path": "analytical_performance.limit_of_quantitation.value"},
-                        {"qnam": "LBULOQ", "qorig": "CRF", "qeval": "VENDOR",
-                         "resolves_in": "tBCO",
-                         "path": "analytical_performance.upper_limit_of_quantitation.value"},
-                        {"qnam": "CENSOR", "qorig": "DERIVED", "qeval": "SPONSOR",
-                         "resolves_in": "rBCO",
-                         "path": "measurements[].censor_state"},
-                    ],
-                    "note": "Reconstructed by sdtm_to_record_set.py.",
-                },
-            },
-        ],
-        "description_domain": {
-            "keywords": ["cardiac troponin I", "TNNI3", "immunoassay",
-                         "run record", "SDTM", "LB", "SUPPLB"],
-            "xref": [],
-            "pipeline_steps": [],
-        },
-        "execution_domain": {
-            "script": [],
-            "script_driver": "manual",
-            "software_prerequisites": [],
-            "external_data_endpoints": [],
-            "environment_variables": {},
-        },
-        "parametric_domain": [],
-        "io_domain": {
-            "input_subdomain": [],
-            "output_subdomain": [],
-        },
-        "error_domain": [],
+    b0 = bm[0]
+    cid = b0.get("BMCONDID", "")
+    roles = list(OrderedDict.fromkeys(r.get("BMROLE", "").lower() for r in bm if r.get("BMROLE")))
+    return {
+        "condition": {"id": _or_ph(cid), "name": _or_ph(b0.get("BMCOND", "").lower()),
+                      "resource": RESOURCE_NAMES.get(cid.split(":")[0].upper(), PH) if ":" in cid else PH},
+        "best_biomarker_role": [{"role": r} for r in roles] or [{"role": PH}],
+        "biomarker_component": [{"component_index": "1", "entity_index": "1",
+                                 "assessed_biomarker_entity_id": _or_ph(b0.get("BMENTID")),
+                                 "assessed_entity_type": _or_ph(b0.get("BMENTTP")),
+                                 "biomarker": _or_ph(b0.get("BMCVTERM"))}],
+        "provenance": {"provider": PH, "author": PH, "date": _or_ph(b0.get("BMASSDTC")),
+                       "description": f"Reconstructed from SDTM BM row(s) {', '.join(r.get('BMID', '') for r in bm)}"},
     }
 
-    # etag — one canonical definition (see finalize_draft.py)
-    rbco["etag"] = compute_etag(rbco)
 
-    return rbco
+def convert(rows: list[dict], supp: list[dict], bm: list[dict], dom: str = "LB") -> dict[str, Any]:
+    if not rows:
+        raise ValueError(f"{dom}.tsv has no rows")
+    tbco = reconstruct_tbco(rows, supp, bm, dom)
+    return {"tbco": tbco, "rbcos": reconstruct_rbcos(rows, supp, tbco, dom), "bmkb": reconstruct_bmkb(bm)}
 
 
-# ---------------------------------------------------------------------------
-# Reconstruct BMKB
-# ---------------------------------------------------------------------------
+def write_out(result: dict, output_dir: str, prefix: str) -> list[str]:
+    os.makedirs(output_dir, exist_ok=True)
+    paths = []
 
-def reconstruct_bmkb(bm_rows: list[dict[str, str]]) -> dict[str, Any]:
-    """Rebuild a BMKB record JSON from the BM SDTM dataset.
+    def dump(name: str, obj: dict) -> None:
+        p = os.path.join(output_dir, name)
+        with open(p, "w") as f:
+            json.dump(obj, f, indent=2, ensure_ascii=False)
+            f.write("\n")
+        paths.append(p)
 
-    Returns a dict matching the BiomarkerKB API response structure.
-    """
-    if not bm_rows:
-        return {}
-
-    bm_row = bm_rows[0]
-
-    entity_id = bm_row.get("BMENTID", "")
-    entity_type = bm_row.get("BMENTTP", "protein")
-    cv_term = bm_row.get("BMCVTERM", "")
-    role = bm_row.get("BMROLE", "monitoring")
-    cond_name = bm_row.get("BMCOND", "")
-    cond_id = bm_row.get("BMCONDID", "")
-    bm_id = bm_row.get("BMID", "BM-001")
-
-    # Build condition block (submission schema: id, lowercase name, resource)
-    condition: dict[str, Any] = {
-        "id": cond_id,
-        "name": cond_name.lower() if cond_name else "",
-        "resource": "Disease Ontology",
-    }
-
-    # Build the biomarker_component (submission schema: five fields only)
-    biomarker_component: list[dict[str, Any]] = [
-        {
-            "component_index": "1",
-            "entity_index": "1",
-            "assessed_biomarker_entity_id": entity_id,
-            "assessed_entity_type": entity_type,
-            "biomarker": cv_term,
-        }
-    ]
-
-    # Provider-side submission record. BiomarkerKB-assigned fields
-    # (biomarker_id, *_md5, biomarker_id_new, source_list) are NOT emitted.
-    bmkb: dict[str, Any] = {
-        "condition": condition,
-        "best_biomarker_role": [
-            {"role": role.lower() if role else "monitoring"}
-        ],
-        "biomarker_component": biomarker_component,
-        "provenance": {
-            "provider": "PLACEHOLDER - submitting organisation",
-            "author": "PLACEHOLDER - author of the record",
-            "date": "PLACEHOLDER - YYYY-MM-DD",
-            "description": f"Reconstructed from SDTM BM row {bm_id}",
-        },
-    }
-
-    return bmkb
+    dump(f"{prefix}_tBCO.json", result["tbco"])
+    for rb in result["rbcos"]:
+        u = rb["extension_domain"][0]["assay_run_extension"]["usubjid"]
+        dump(f"{prefix}_rBCO_{u}.json", rb)
+    dump(f"{prefix}_BMKB.json", result["bmkb"])
+    return paths
 
 
 # ---------------------------------------------------------------------------
-# Main entry point
+# Self-test: gold record set -> SDTM -> record set, compared with the gold JSON
 # ---------------------------------------------------------------------------
 
-def main():
+def _self_test() -> int:
+    import tempfile
+    import record_set_to_sdtm as fwd
+    import validate_bco
+    import validate_bmkb
+
+    tbco, rbcos, bmkb = fwd.gold_inputs()
+    errors: list[str] = []
+    with tempfile.TemporaryDirectory() as tmp:
+        fwd.write_all(fwd.convert(tbco, rbcos, bmkb, fwd.SELF_TEST_STUDY), tmp)
+        res = convert(read_tsv(os.path.join(tmp, "LB.tsv")), read_tsv(os.path.join(tmp, "SUPPLB.tsv")),
+                      read_tsv(os.path.join(tmp, "BM.tsv")))
+
+    def check(label: str, got: Any, exp: Any) -> None:
+        if got != exp:
+            errors.append(f"{label}: got {got!r}, expected {exp!r}")
+
+    gt, rt = fwd.assay_ext(tbco), fwd.assay_ext(res["tbco"])
+    for k in ("limit_of_detection", "limit_of_quantitation", "upper_limit_of_quantitation"):
+        check(f"tBCO {k}", rt["analytical_performance"][k]["value"], gt["analytical_performance"][k]["value"])
+    for k in ("lbtestcd", "lbtest", "entity_type"):
+        check(f"tBCO target.{k}", rt["target"][k], gt["target"][k])
+    check("tBCO identifiers", rt["target"]["analyte_identifiers"], gt["target"]["analyte_identifiers"])
+    for k in ("assay_name", "manufacturer", "platform", "method", "loinc_code"):
+        check(f"tBCO assay.{k}", rt["assay"][k], gt["assay"][k])
+    check("tBCO specimen", rt["specimen_requirements"]["specimen_type"], gt["specimen_requirements"]["specimen_type"])
+    check("tBCO unit", rt["reporting_convention"]["unit"], gt["reporting_convention"]["unit"])
+    check("tBCO upper reference limit", rt["reference_limits"][0]["value"], gt["reference_limits"][0]["value"])
+    check("tBCO rule roles", [r["role"] for r in rt["interpretation_rules"]],
+          [r["role"] for r in gt["interpretation_rules"]])
+    check("tBCO rule text", [r["display"] for r in rt["interpretation_rules"]],
+          [r["display"] for r in gt["interpretation_rules"]])
+    check("tBCO object_id", res["tbco"]["object_id"], tbco["object_id"])
+
+    check("rBCO count (one per subject)", len(res["rbcos"]), len(rbcos))
+    for rb_gold, rb_new in zip(rbcos, res["rbcos"]):
+        eg, en = fwd.run_ext(rb_gold), fwd.run_ext(rb_new)
+        check("rBCO usubjid", en["usubjid"], eg["usubjid"])
+        check("rBCO object_id", rb_new["object_id"], rb_gold["object_id"])
+        for f in ("specimen_id", "collection_dtc", "visit", "visitnum", "censor_state", "lbtestcd"):
+            check(f"{eg['usubjid']} measurements[].{f}", [m[f] for m in en["measurements"]],
+                  [m[f] for m in sorted(eg["measurements"], key=lambda m: m["collection_dtc"])])
+        for k in ("measurements_below_lod", "measurements_detected_below_lloq", "measurements_above_uloq"):
+            check(f"{eg['usubjid']} {k}", rb_new["error_domain"]["empirical_error"][k],
+                  rb_gold["error_domain"]["empirical_error"][k])
+
+    nb = res["bmkb"]
+    for k in ("id", "name", "resource"):
+        check(f"BMKB condition.{k}", nb["condition"][k], bmkb["condition"][k])
+    check("BMKB roles", nb["best_biomarker_role"], bmkb["best_biomarker_role"])
+    for k in ("assessed_biomarker_entity_id", "assessed_entity_type", "biomarker"):
+        check(f"BMKB component.{k}", nb["biomarker_component"][0][k], bmkb["biomarker_component"][0][k])
+
+    for obj in [res["tbco"], *res["rbcos"]]:
+        bad = [m for m in validate_bco.validate_bco(obj) if not validate_bco._is_warning(m)]
+        if bad:
+            errors.append(f"reconstructed BCO {obj['object_id']} fails validate_bco: {bad[:3]}")
+    if validate_bmkb.validate(nb):
+        errors.append(f"reconstructed BMKB fails validate_bmkb: {validate_bmkb.validate(nb)}")
+
+    if errors:
+        print("[SELF-TEST] FAILED:")
+        for e in errors:
+            print(f"  - {e}")
+        return 1
+    print(f"[SELF-TEST] PASSED — gold -> SDTM -> record set matches the gold on every field SDTM "
+          f"carries; {len(res['rbcos'])} rBCOs; outputs validate")
+    return 0
+
+
+def main() -> int:
     import argparse
-
-    parser = argparse.ArgumentParser(
-        description="Convert SDTM TSV files back to the record set JSON."
-    )
-    parser.add_argument("--dm", default="", help="Path to DM.tsv")
-    parser.add_argument("--lb", default="", help="Path to LB.tsv")
-    parser.add_argument("--supplb", default="", help="Path to SUPPLB.tsv")
-    parser.add_argument("--bm", default="", help="Path to BM.tsv")
-    parser.add_argument("--output-dir", default=".", help="Output directory for JSON files")
-    parser.add_argument(
-        "--prefix", default="reconstructed",
-        help="Output filename prefix (default: reconstructed)",
-    )
-    parser.add_argument(
-        "--self-test", action="store_true",
-        help="Run a self-test using the troponin_I gold TSVs",
-    )
-    args = parser.parse_args()
-
-    if args.self_test:
-        sys.exit(0 if self_test() else 1)
-
-    # Validate inputs
-    paths = [args.dm, args.lb, args.supplb, args.bm]
-    for p in paths:
-        if not p:
-            print("[ERROR] --dm, --lb, --supplb, and --bm are all required.")
-            sys.exit(1)
-
-    # Read TSVs
-    dm_rows = _read_tsv(args.dm)
-    lb_rows = _read_tsv(args.lb)
-    supplb_rows = _read_tsv(args.supplb)
-    bm_rows = _read_tsv(args.bm)
-
-    if not dm_rows:
-        print("[ERROR] DM.tsv is empty.")
-        sys.exit(1)
-
-    studyid = dm_rows[0].get("STUDYID", "STUDY")
-    usubjid = dm_rows[0].get("USUBJID", "")
-
-    # Reconstruct
-    tbco = reconstruct_tbco(lb_rows, supplb_rows, bm_rows, studyid)
-    rbco = reconstruct_rbco(lb_rows, supplb_rows, tbco, studyid, usubjid)
-    bmkb = reconstruct_bmkb(bm_rows)
-
-    # Output
-    os.makedirs(args.output_dir, exist_ok=True)
-    for name, obj in [("tBCO", tbco), ("rBCO", rbco), ("BMKB", bmkb)]:
-        path = os.path.join(args.output_dir, f"{args.prefix}_{name}.json")
-        with open(path, "w") as f:
-            json.dump(obj, f, indent=2)
-        print(f"[OK] {name:6s} → {os.path.relpath(path)}")
-        print(f"      Top-level keys: {list(obj.keys())}")
-        if name == "rBCO":
-            meas = (
-                obj.get("extension_domain", [{}])[0]
-                .get("assay_run_extension", {})
-                .get("measurements", [])
-            )
-            print(f"      Measurements: {len(meas)} rows")
-
-    print("\nDone. Reconstructed record set written to", args.output_dir)
-
-
-# ---------------------------------------------------------------------------
-# Self-test
-# ---------------------------------------------------------------------------
-
-def self_test() -> bool:
-    """Reconstruct the record set from the forward self-test's TSVs and check
-    it against the gold Troponin I JSON (patient 1).
-
-    Reads fixtures/troponin_I/_output/sdtm_self_test/, which
-    ``record_set_to_sdtm.py --self-test`` writes, so run that first.
-    Returns True only if every check passes.
-    """
-    print("=" * 60)
-    print("sdtm_to_record_set.py — Self-test")
-    print("=" * 60)
-
-    tsv_dir = os.path.join(_HERE, "..", "fixtures", "troponin_I", "_output", "sdtm_self_test")
-    paths = {name: os.path.join(tsv_dir, f"{name}.tsv")
-             for name in ("DM", "LB", "SUPPLB", "BM")}
-    for p in paths.values():
-        if not os.path.exists(p):
-            print(f"[FAIL] Required self-test file not found: {p}")
-            print("       Run `python record_set_to_sdtm.py --self-test` first.")
-            return False
-
-    dm_rows = _read_tsv(paths["DM"])
-    lb_rows = _read_tsv(paths["LB"])
-    supplb_rows = _read_tsv(paths["SUPPLB"])
-    bm_rows = _read_tsv(paths["BM"])
-    print(f"DM: {len(dm_rows)} row(s), LB: {len(lb_rows)} row(s), "
-          f"SUPPLB: {len(supplb_rows)} row(s), BM: {len(bm_rows)} row(s)")
-
-    def _gold(name: str) -> dict:
-        with open(os.path.join(_TROPI, name)) as f:
-            return json.load(f)
-
-    gold_t = _gold("Troponin_I_tBCO.json")
-    gold_r = _gold("Troponin_I_patient1_rBCO.json")
-    gold_k = _gold("Troponin_I_biomarkerKB.json")
-    gold_ext_t = gold_t["extension_domain"][0]["assay_protocol_extension"]
-    gold_ext_r = gold_r["extension_domain"][0]["assay_run_extension"]
-
-    studyid = dm_rows[0].get("STUDYID", "")
-    usubjid = dm_rows[0].get("USUBJID", "")
-    tbco = reconstruct_tbco(lb_rows, supplb_rows, bm_rows, studyid)
-    rbco = reconstruct_rbco(lb_rows, supplb_rows, tbco, studyid, usubjid)
-    bmkb = reconstruct_bmkb(bm_rows)
-
-    failures: list[str] = []
-    n_checks = 0
-
-    def check(label: str, got: Any, expected: Any) -> None:
-        nonlocal n_checks
-        n_checks += 1
-        if got == expected:
-            print(f"  [OK]   {label}: {got!r}")
-        else:
-            print(f"  [FAIL] {label}: got {got!r}, expected {expected!r}")
-            failures.append(label)
-
-    # --- tBCO ---
-    print("\n--- tBCO ---")
-    ext_t = tbco["extension_domain"][0]["assay_protocol_extension"]
-    check("object_id", tbco["object_id"], gold_t["object_id"])
-    check("spec_version", tbco["spec_version"], gold_t["spec_version"])
-    check("etag", tbco["etag"], compute_etag(tbco))
-    check("spec_id", ext_t["spec_id"], gold_ext_t["spec_id"])
-    for field in ("assay_name", "manufacturer", "platform", "method", "loinc_code"):
-        check(f"assay.{field}", ext_t["assay"][field], gold_ext_t["assay"][field])
-    for field in ("limit_of_detection", "limit_of_quantitation",
-                  "upper_limit_of_quantitation"):
-        check(f"analytical_performance.{field}",
-              ext_t["analytical_performance"][field]["value"],
-              gold_ext_t["analytical_performance"][field]["value"])
-    check("reference_limits[0].value",
-          (ext_t["reference_limits"] or [{}])[0].get("value"),
-          gold_ext_t["reference_limits"][0]["value"])
-    check("interpretation_rules[0].expression",
-          (ext_t["interpretation_rules"] or [{}])[0].get("expression"),
-          gold_ext_t["interpretation_rules"][0]["expression"])
-
-    # --- rBCO ---
-    print("\n--- rBCO ---")
-    ext_r = rbco["extension_domain"][0]["assay_run_extension"]
-    check("object_id", rbco["object_id"], gold_r["object_id"])
-    check("derived_from", rbco["provenance_domain"]["derived_from"],
-          gold_r["provenance_domain"]["derived_from"])
-    check("specification.tbco_object_id", ext_r["specification"]["tbco_object_id"],
-          gold_ext_r["specification"]["tbco_object_id"])
-    check("studyid", ext_r["studyid"], gold_ext_r["studyid"])
-    check("usubjid", ext_r["usubjid"], gold_ext_r["usubjid"])
-    measurements = ext_r["measurements"]
-    gold_meas = gold_ext_r["measurements"]
-    check("measurement count", len(measurements), len(gold_meas))
-    for m, g in zip(measurements, gold_meas):
-        for field in ("idvarval", "lbtestcd", "visit", "specimen_id",
-                      "collection_dtc", "censor_state"):
-            check(f"measurements[{g['idvarval']}].{field}", m[field], g[field])
-    sdtm_paths = {d["qnam"]: d["path"]
-                  for d in rbco["extension_domain"][1]["sdtm_extension"]["supplb_derivation"]}
-    check("sdtm_extension ASSAYNAM path", sdtm_paths.get("ASSAYNAM"), "assay.assay_name")
-
-    # --- BMKB ---
-    print("\n--- BMKB ---")
-    check("condition", bmkb["condition"], gold_k["condition"])
-    check("best_biomarker_role", bmkb["best_biomarker_role"], gold_k["best_biomarker_role"])
-    check("biomarker_component", bmkb["biomarker_component"], gold_k["biomarker_component"])
-
-    print()
-    if failures:
-        print(f"[FAIL] Self-test: {len(failures)} of {n_checks} checks failed: "
-              f"{', '.join(failures)}")
-        return False
-    print(f"[PASS] Self-test: all {n_checks} checks passed.")
-    return True
+    p = argparse.ArgumentParser(description="SDTM TSVs -> record set (no results, no demographics).")
+    p.add_argument("--lb", help="findings TSV (LB.tsv, or IS.tsv etc. with --domain)")
+    p.add_argument("--supp", "--supplb", dest="supp", help="SUPP<domain>.tsv")
+    p.add_argument("--bm", help="BM.tsv")
+    p.add_argument("--dm", help="ignored: BCOs carry no demographics (kept for older commands)")
+    p.add_argument("--domain", default="LB")
+    p.add_argument("--output-dir", default="./reconstructed")
+    p.add_argument("--prefix", default="reconstructed")
+    p.add_argument("--self-test", action="store_true")
+    a = p.parse_args()
+    if a.self_test:
+        return _self_test()
+    if not (a.lb and a.supp and a.bm):
+        p.error("--lb, --supp and --bm are required (or --self-test)")
+    try:
+        res = convert(read_tsv(a.lb), read_tsv(a.supp), read_tsv(a.bm), a.domain.upper())
+    except ValueError as e:
+        print(f"[ERROR] {e}")
+        return 1
+    for path in write_out(res, a.output_dir, a.prefix):
+        print(f"[DONE] {path}")
+    print("\nNot reconstructed:")
+    for item in LOSSY:
+        print(f"  - {item}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

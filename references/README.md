@@ -20,6 +20,7 @@ references/
 ├── best-definitions.md  # FDA-NIH BEST biomarker roles
 ├── sdtmig-guide.md      # SDTMIG v3.4 rules for DM, LB, SUPPLB, BM
 ├── pitfalls.md          # known traps across BCO / BMKB / SDTM
+├── required-fields.md   # what each field is required by; what to do when missing
 ├── sdtmig-v3.4.pdf      # full SDTMIG v3.4 specification (consult when the summary isn't enough)
 └── schemas/             # IEEE 2791 JSON Schemas (machine-readable)
 ```
@@ -63,14 +64,16 @@ gold example — they are one unit.
 
 | Artifact | Version | Status | Updated | Notes |
 |---|---|---|---|---|
-| `bmkb-model.md` | 2.1.0 | current | 2026-10-19 | BM mapping moved to sdtmig-guide.md §6 |
+| `bmkb-model.md` | 2.2.0 | current | 2026-10-19 | Lowercase entity types; OLS-only accession lookup; CURIE style |
 | `bco-schema.md` | 1.1.0 | current | 2026-10-19 | Contents list added |
-| `best-definitions.md` | 1.0.0 | current | 2026-10-13 | |
-| `sdtmig-guide.md` | 2.0.0 | current | 2026-10-19 | Domain index with PDF pages; LB distilled from SDTMIG v3.4; BM copied from the gold xlsx |
-| `pitfalls.md` | 2.0.0 | current | 2026-10-19 | Holds the one censor-zone table and the troubleshooting table |
+| `best-definitions.md` | 2.0.0 | current | 2026-10-19 | Role-assignment rules and per-role requirements; troponin is diagnostic + prognostic |
+| `sdtmig-guide.md` | 2.1.0 | current | 2026-10-19 | Domain index with PDF pages; LB distilled from SDTMIG v3.4; BM copied from the gold xlsx |
+| `pitfalls.md` | 2.1.0 | current | 2026-10-19 | Censor policy B02; limits in LB; troubleshooting table |
+| `required-fields.md` | 1.0.0 | current | 2026-10-19 | New: required-by matrix for every input |
 | `schemas/2791object.json` | upstream | current | 2026-10-13 | IEEE 2791 root schema |
 | `sdtmig-v3.4.pdf` | 3.4 | current | 2026-10-15 | Full spec; upstream name `SDTMIG v3.4-FINAL_2022-07-21.pdf` |
-| `assets/bmkb_template.json` | 2.0.0 | current | 2026-10-15 | Matches bmkb-model.md v2 |
+| `assets/bmkb_template.json` | 2.1.0 | current | 2026-10-19 | PLACEHOLDER values instead of the gold answer |
 | `assets/entity_names.json` | 1.0.0 | current | 2026-10-15 | Accession→name resolution cache (BM.BMENTNM) |
-| `assets/tbco_template.json` | 1.1.0 | current | 2026-10-19 | Unknown numbers are null |
-| `assets/rbco_template.json` | 1.1.0 | current | 2026-10-19 | censor_state no longer pre-filled |
+| `assets/tbco_template.json` | 1.2.0 | current | 2026-10-19 | Schema-clean; CT test code/name; CURIEs; rule role + display |
+| `assets/rbco_template.json` | 1.2.0 | current | 2026-10-19 | Schema-clean; visitnum; limits derived in LB |
+| `assets/study_data_template.json` | 1.0.0 | current | 2026-10-19 | New: demographics, results and claim for SDTM conversion |
