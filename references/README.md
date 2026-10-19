@@ -21,6 +21,7 @@ references/
 ├── sdtmig-guide.md      # SDTMIG v3.4 rules for DM, LB, SUPPLB, BM
 ├── pitfalls.md          # known traps across BCO / BMKB / SDTM
 ├── required-fields.md   # what each field is required by; what to do when missing
+├── cdisc-ct/            # CDISC CT extract (LBTESTCD/LBTEST, SPECTYPE, UNIT, METHOD, IS, GF)
 ├── sdtmig-v3.4.pdf      # full SDTMIG v3.4 specification (consult when the summary isn't enough)
 └── schemas/             # IEEE 2791 JSON Schemas (machine-readable)
 ```
@@ -70,6 +71,7 @@ gold example — they are one unit.
 | `sdtmig-guide.md` | 2.1.0 | current | 2026-10-19 | Domain index with PDF pages; LB distilled from SDTMIG v3.4; BM copied from the gold xlsx |
 | `pitfalls.md` | 2.1.0 | current | 2026-10-19 | Censor policy B02; limits in LB; troubleshooting table |
 | `required-fields.md` | 1.0.0 | current | 2026-10-19 | New: required-by matrix for every input |
+| `cdisc-ct/sdtm_ct_extract.tsv` | NCI EVS 2026-09-25 | current | 2026-10-19 | New: offline CT lookup via scripts/cdisc_ct.py |
 | `schemas/2791object.json` | upstream | current | 2026-10-13 | IEEE 2791 root schema |
 | `sdtmig-v3.4.pdf` | 3.4 | current | 2026-10-15 | Full spec; upstream name `SDTMIG v3.4-FINAL_2022-07-21.pdf` |
 | `assets/bmkb_template.json` | 2.1.0 | current | 2026-10-19 | PLACEHOLDER values instead of the gold answer |

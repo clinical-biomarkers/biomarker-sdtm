@@ -1,7 +1,7 @@
 {
   "object_id": "https://biocomputeobject.org/PLACEHOLDER_Troponin_I_BM-2026-01-001_R-2026-0315-01_rBCO/1.0.0",
   "spec_version": "https://w3id.org/ieee/ieee-2791-schema/2791object.json",
-  "etag": "c7b0dbb5fc6ffbf7c37d0936ffa64a7357b34307bf12a8b1a6c353468d7d9c36",
+  "etag": "ddd4aa77cf57ebb75089007b5d8dc3b3ee6d38fcde244a848d7fd3d4f26c9806",
   "provenance_domain": {
     "name": "Cardiac troponin I, subject BM-2026-01-001, run R-2026-0315-01",
     "version": "1.0",
@@ -211,7 +211,7 @@
       "SDTM",
       "LB",
       "SUPPLB",
-      "DOID:5844"
+      "DOID:9408"
     ],
     "xref": [
       {
@@ -234,7 +234,7 @@
         "namespace": "doid",
         "name": "Human Disease Ontology",
         "ids": [
-          "DOID:5844"
+          "DOID:9408"
         ],
         "access_time": "2026-10-07T12:00:00.000000"
       },

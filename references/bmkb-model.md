@@ -60,7 +60,7 @@ provenance                 (provider, author, date, description)
 ## 3. `condition`
 
 ```
-{ "id": "DOID:5844", "name": "acute myocardial infarction", "resource": "Disease Ontology" }
+{ "id": "DOID:9408", "name": "acute myocardial infarction", "resource": "Disease Ontology" }
 ```
 
 - `name` is **lowercase** (e.g. `colon cancer`).
@@ -112,17 +112,20 @@ chemical element) keep their own resource chain in §7 but are written as their 
 The documents give the entity **name**; the record needs a **CURIE**.
 
 1. Pick the entity type (§6). Run `python scripts/biomarker_accessions.py` for its resource chain,
-   in order of preference. A `*` marks resources the OLS MCP server can resolve.
-2. Look the entity up **only through the OLS MCP server** (its search tool). Take the first
-   resource in the chain that OLS has a match for.
-3. Convert the OLS term id to a CURIE with `curie_from_ols()` in that script:
+   in order of preference. A `*` marks resources the OLS API serves.
+2. Look the entity up **only through the OLS API**:
+   `python scripts/ols_lookup.py search "<name>" --type <entity type> [--species human]`.
+   It searches the type's OLS resources in preference order and ranks exact label matches first.
+   Choose the candidate whose label matches the document (a search for "troponin I cardiac" also
+   returns troponin T) and confirm it with `python scripts/ols_lookup.py get <CURIE>`.
+3. The lookup prints CURIEs already converted (`curie_from_ols()` in `biomarker_accessions.py`):
    - a Protein Ontology term named by a UniProt accession, `PR_P19429`, becomes `UPKB:P19429`
    - every other term, `GO_0005861`, `DOID_5844` or `NCIT_C16612`, becomes `GO:0005861`,
-     `DOID:5844`, `NCIT:C16612`
+     `DOID:9408`, `NCIT:C16612`
 4. If OLS has no entry (UniProt-only, PubChem, GlyTouCan, miRBase, dbSNP, NCBI Gene, LOINC, ...),
    leave the id `PLACEHOLDER` and list it in the hand-over report. Never guess an id, and never use
    another lookup route.
-5. If the OLS MCP server is not connected, tell the user before going on.
+5. If OLS is unreachable (the script says so), tell the user before going on.
 
 Write every identifier as a CURIE (`PREFIX:local`), in the BMKB record and in the tBCO
 (`target.analyte_identifiers[].curie`). Specimens use UBERON (`UBERON:0001977`, blood serum).
@@ -167,7 +170,7 @@ study documents via `--evidence`).
 ## 11. Notes
 
 1. **Do not emit BMKB-assigned fields** (§2) — the provider submits; BiomarkerKB assigns.
-2. **Condition is the study context** (e.g. AMI `DOID:5844`), not any example's condition.
+2. **Condition is the study context** (e.g. AMI `DOID:9408`), not any example's condition.
 3. **Look up accessions from the entity type** (§7) — clinical documents carry names, not ids.
 
 ---

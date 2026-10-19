@@ -38,9 +38,9 @@ Read only what the task needs. Read each reference in full the first time; every
 
 | Task | Read | Fill | Run | Gate |
 |---|---|---|---|---|
-| Write a tBCO | `references/bco-schema.md`, `examples/troponin_I/Troponin_I_tBCO.json` | `assets/tbco_template.json` | `finalize_draft.py`, `validate_bco.py` | Step 5 |
+| Write a tBCO | `references/bco-schema.md`, `examples/troponin_I/Troponin_I_tBCO.json` | `assets/tbco_template.json` | `cdisc_ct.py`, `finalize_draft.py`, `validate_bco.py` | Step 5 |
 | Write rBCOs | `examples/troponin_I/Troponin_I_patient1_rBCO.json`, `references/pitfalls.md` §1 | `assets/rbco_template.json` | `censor_state.py`, `finalize_draft.py`, `validate_bco.py` | Step 5 |
-| Write the BMKB record | `references/bmkb-model.md`, `references/best-definitions.md` (roles) | `assets/bmkb_template.json`, `assets/entity_names.json` | `biomarker_accessions.py`, OLS MCP server, `validate_bmkb.py` | Step 5 |
+| Write the BMKB record | `references/bmkb-model.md`, `references/best-definitions.md` (roles) | `assets/bmkb_template.json`, `assets/entity_names.json` | `biomarker_accessions.py`, `ols_lookup.py`, `validate_bmkb.py` | Step 5 |
 | Record set → SDTM | `references/sdtmig-guide.md` §1–2 first, then only the domain sections needed | `assets/study_data_template.json` | `record_set_to_sdtm.py` | Step 7 report |
 | SDTM → record set | `references/sdtmig-guide.md` §7 | — | `sdtm_to_record_set.py`, then both validators | Reverse step 3 |
 | Decide which SDTM domains apply | `references/sdtmig-guide.md` §2, `references/best-definitions.md` §3 | — | — | Report |
@@ -81,6 +81,13 @@ Collect, citing the document each value came from:
 Lab files rarely use SDTM names. Map their columns to the fields above yourself, and record the
 mapping in the hand-over report.
 
+When documents disagree, use this order: the owner's policy in this skill (e.g. the censoring rule
+in `references/pitfalls.md` §1) first, then the study's own data files, then study-specific
+documents (protocol, context of use, lab manual, validation report), then the generic
+manufacturer IFU. Example: the IFU says report values below the LLOQ as "<LLoQ", but the lab file
+gives 0.021 and the policy keeps the number, so use 0.021. List every conflict and how you
+resolved it in the hand-over report.
+
 ### Step 2: Write the tBCO (one per assay)
 
 Fill `assets/tbco_template.json`. Keys starting with `//_` are guidance for you; keep them while
@@ -101,8 +108,16 @@ Domains every BCO in this skill must carry:
   `error_domain`, `extension_domain` holding `assay_protocol_extension` (tBCO) or
   `assay_run_extension` (rBCO), and for a tBCO `parametric_domain`
 
-Fill `target.lbtestcd` / `lbtest` with the CDISC Controlled Terminology test code and name for the
-analyte (cardiac troponin I: `TROPONI3` / `Troponin I Type 3`), not a gene symbol. Give each
+Fill `target.lbtestcd` / `lbtest` with a CDISC Controlled Terminology test code and name, never a
+gene symbol, and use CT values for specimen type, unit and method. Look them up offline:
+
+```bash
+python scripts/cdisc_ct.py search "cardiac troponin I"            # -> TROPONI3 | Troponin I Type 3
+python scripts/cdisc_ct.py search "serum" --codelist SPECTYPE
+python scripts/cdisc_ct.py check UNIT ng/mL                       # reports the submission value
+```
+
+If no CT term fits, keep a sponsor-defined value and report it. Give each
 `interpretation_rules[]` entry the BEST `role` it supports and a `display` text with the values
 filled in; that text becomes BM.BMRULE.
 
@@ -143,10 +158,18 @@ emit the fields BiomarkerKB assigns (`biomarker_id`, `biomarker_canonical_id`, `
   python scripts/biomarker_accessions.py      # entity type → CURIE prefixes, * = on OLS
   ```
 
-  Look identifiers up **only through the OLS MCP server**. Convert the term id to a CURIE (a
-  Protein Ontology `PR_P19429` is `UPKB:P19429`); `curie_from_ols()` does it. If OLS has no entry,
-  leave the id PLACEHOLDER and report it; never guess one. If the OLS server is not connected, tell
-  the user. Rules: `references/bmkb-model.md` §6–7. Write the `biomarker` statement as
+  Look identifiers up **only through the OLS API**, with `scripts/ols_lookup.py`:
+
+  ```bash
+  python scripts/ols_lookup.py search "troponin I, cardiac muscle" --type protein --species human
+  python scripts/ols_lookup.py search "acute myocardial infarction" --type condition
+  python scripts/ols_lookup.py get UPKB:P19429        # verify before you use it
+  ```
+
+  Results are already CURIEs (`PR_P19429` becomes `UPKB:P19429`). Pick the candidate whose label
+  matches the document, not simply the top hit, and check it with `get`. If nothing matches, or the
+  type has no OLS resource, leave the id PLACEHOLDER and report it; never guess one. If OLS is
+  unreachable, tell the user. Rules: `references/bmkb-model.md` §6–7. Write the `biomarker` statement as
   `{change} {aspect} of {entity_type} {symbol}/{CURIE}`, e.g.
   `Increased level of protein TNNI3/UPKB:P19429`.
 - **Name cache:** add `"<accession exactly as in assessed_biomarker_entity_id>": "<entity name>"` to
@@ -197,7 +220,7 @@ Give the user, in this order:
 
 1. Files written and validator results
 2. Unfilled fields (PLACEHOLDER or null), by file
-3. Column mapping used for the lab files (Step 1)
+3. Column mapping used for the lab files, and document conflicts with how each was resolved (Step 1)
 4. Accessions resolved and where each was looked up
 5. Domains the study needs beyond what was written (Step 6), and that BM is a proposed domain
 6. Expected SDTM variables left empty, and why (`references/required-fields.md` §6)
@@ -226,7 +249,7 @@ Give the user, in this order:
 two subjects, `Troponin_I_biomarkerKB.json` and `Troponin_I_SDTM.xlsx`. Its inputs are the simulated
 documents in `fixtures/troponin_I/`. Match its shape, not its values: TnI-Ultra on ADVIA Centaur XP,
 LoD 0.006 / LLOQ 0.03 / ULOQ 50 ng/mL, 99th percentile 0.04 ng/mL, acute myocardial infarction
-(DOID:5844), roles diagnostic and prognostic.
+(DOID:9408), roles diagnostic and prognostic.
 
 Never write into `examples/`. Put test output in a scratch directory or `fixtures/<name>/_output/`.
 
@@ -246,6 +269,7 @@ references/             read on demand (see "Route by task")
   sdtmig-guide.md       SDTM domain index + DM, LB, SUPPLB, BM, reverse mapping
   sdtmig-v3.4.pdf       full SDTMIG; open at the pages sdtmig-guide.md lists
   bmkb-model.md         BiomarkerKB submission schema + accession rules
+  cdisc-ct/             CDISC CT extract (query with scripts/cdisc_ct.py)
   best-definitions.md   FDA-NIH BEST biomarker roles
   bco-schema.md         IEEE 2791 field reference
   pitfalls.md           censor zones, traps, troubleshooting

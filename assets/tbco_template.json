@@ -69,7 +69,7 @@
           "analyte_name": "PLACEHOLDER - Full analyte name (e.g., 'Troponin I, cardiac muscle')",
           "lbtestcd": "PLACEHOLDER - CDISC CT LBTESTCD for the analyte (e.g., TROPONI3)",
           "lbtest": "PLACEHOLDER - CDISC CT LBTEST paired with lbtestcd (e.g., Troponin I Type 3)",
-          "//_analyte_identifiers_help": "CURIEs looked up through the OLS MCP server (e.g. PR_P19429 -> UPKB:P19429). Leave PLACEHOLDER if OLS has no entry.",
+          "//_analyte_identifiers_help": "CURIEs looked up with scripts/ols_lookup.py (OLS API; e.g. UPKB:P19429, verified with 'get'). Leave PLACEHOLDER if OLS has no entry.",
           "analyte_identifiers": [
             {
               "curie": "PLACEHOLDER - e.g., UPKB:P19429"

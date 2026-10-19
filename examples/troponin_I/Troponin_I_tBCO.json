@@ -1,7 +1,7 @@
 {
   "object_id": "https://biocomputeobject.org/PLACEHOLDER_Troponin_I_tBCO/1.0.0",
   "spec_version": "https://w3id.org/ieee/ieee-2791-schema/2791object.json",
-  "etag": "fe39db28b376b7fd3291e7e3e3e96648012cc4e4211d4ca3af1b9edad2ec97c5",
+  "etag": "81949a7de2eb33e780b0bb48d3a1216f62171ba4f38d345ce5f9841a6bbabd9d",
   "provenance_domain": {
     "name": "Assay standard for the cardiac troponin I assay (TnI-Ultra, ADVIA Centaur XP)",
     "version": "1.0.0",
@@ -66,8 +66,8 @@
           "entity_type": "protein",
           "measured_property": "mass concentration",
           "matrix": {
-            "term": "blood",
-            "curie": "UBERON:0000178"
+            "term": "serum",
+            "curie": "UBERON:0001977"
           },
           "detects": "Release of cardiac troponin I into the circulation following myocyte injury. An increase above the reference limit is the finding."
         },
@@ -77,7 +77,7 @@
           "platform": "ADVIA Centaur XP",
           "method": "IMMUNOASSAY",
           "assay_generation": "sensitive",
-          "regulatory_status": "investigational",
+          "regulatory_status": "PLACEHOLDER - not stated in the study documents",
           "calibration_traceability": "None. There is no certified primary reference material for cardiac troponin I and standardization across manufacturers is considered unlikely, because monoclonal antibodies to different cTnI epitopes recognise different circulating modifications. An IFCC working group is pursuing harmonization through a pooled serum-based secondary reference material. Results are traceable only to the manufacturer's own calibrator lineage.",
           "loinc_code": "10839-9"
         },
@@ -85,9 +85,9 @@
           "specimen_type": "SERUM",
           "specimen_curie": "UBERON:0001977",
           "container_additive": "serum separator tube (SST), gel barrier",
-          "minimum_volume": "PLACEHOLDER",
-          "handling": "PLACEHOLDER - centrifugation and separation requirements",
-          "stability": "PLACEHOLDER - time and temperature limits before assay"
+          "minimum_volume": "2.0 mL whole blood",
+          "handling": "venipuncture into an SST; clot 30 min at room temperature; centrifuge at ~1500 x g for 10 min; separate serum into a labelled aliquot",
+          "stability": "analyse within 24 h at 2-8 C; if delayed, store at <= -70 C and analyse within 30 days; avoid freeze-thaw cycles"
         },
         "subject_preconditions": [
           {
@@ -149,7 +149,7 @@
               "cv_pct": 10
             }
           ],
-          "linearity": "PLACEHOLDER - not stated in the available sources",
+          "linearity": "accepted over the measuring range (CLSI EP06)",
           "interferences": [
             "proteolytic degradation of the cTnI molecule",
             "phosphorylation of cTnI",
@@ -186,7 +186,7 @@
         "interpretation_rules": [
           {
             "rule_id": "R1",
-            "outcome": "acute myocardial injury",
+            "outcome": "acute myocardial infarction",
             "expression": "value > reference limit AND |relative change| >= threshold within window",
             "components": [
               {

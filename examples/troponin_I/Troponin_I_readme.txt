@@ -8,7 +8,7 @@ of two subjects, and the study data.
 
 Analyte : cardiac troponin I (TNNI3, UniProtKB P19429)
 Assay   : TnI-Ultra on the Siemens ADVIA Centaur XP
-Context : acute myocardial infarction (DOID:5844); roles diagnostic and prognostic
+Context : acute myocardial infarction (DOID:9408); roles diagnostic and prognostic
 
 
 -------------------------------------------------------------------------------

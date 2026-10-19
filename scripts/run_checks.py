@@ -35,6 +35,8 @@ SELF_TESTS = [
     "censor_state.py",
     "finalize_draft.py",
     "biomarker_accessions.py",
+    "ols_lookup.py",          # offline; `--self-test --live` also queries OLS
+    "cdisc_ct.py",
     "validate_bmkb.py",
     "validate_bco.py",
     "record_set_to_sdtm.py",

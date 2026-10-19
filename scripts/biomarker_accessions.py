@@ -3,7 +3,7 @@
 
 Clinical documents carry entity *names*, not identifiers. This module holds the
 BiomarkerKB resource table (references/bmkb-model.md §7) as code, and marks
-which resources the agent can reach through the OLS MCP server, the only
+which resources the agent can reach through the OLS API (scripts/ols_lookup.py), the only
 lookup the skill uses (owner decision H04). A resource OLS does not serve is
 left unmapped (PLACEHOLDER) rather than guessed.
 
@@ -119,7 +119,7 @@ def accession_resource_for(entity_type: str) -> str:
 
 
 def ols_resources_for(entity_type: str) -> tuple[str, ...]:
-    """The preferred-order prefixes the OLS MCP server can resolve for *entity_type*."""
+    """The preferred-order prefixes the OLS API can resolve for *entity_type*."""
     return tuple(p for p in accession_resources(entity_type) if RESOURCES[p][1])
 
 
@@ -146,7 +146,7 @@ def _print_table() -> None:
         chain = "  ->  ".join(p + ("*" if RESOURCES[p][1] else "") for p in ACCESSION_RESOURCES[t])
         label = t if t in ENTITY_TYPES else f"{t} (write as {SUBTYPES[t]})"
         print(f"  {label:<32} {chain}")
-    print("\nLook up only through the OLS MCP server. A resource without * is not on OLS:")
+    print("\nLook up only through the OLS API: python scripts/ols_lookup.py search ... A resource without * is not on OLS:")
     print("leave the accession PLACEHOLDER and list it in the hand-over report.")
     print("OLS PR_<UniProt accession> terms convert to UPKB:<accession> (curie_from_ols).")
 

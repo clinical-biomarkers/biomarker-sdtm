@@ -76,7 +76,7 @@ acute myocardial infarction, with blood drawn at admission, 3 h and 6 h. It repo
 accuracy (AUC, sensitivity, specificity) and, as a secondary analysis, the risk of adverse outcome at
 30 days. The study protocol (fixture 01) names the same two objectives.
 
-- `diagnostic`, condition AMI (DOID:5844): `Value > 0.04 ng/mL AND rise or fall >= 30% within 6 h`
+- `diagnostic`, condition AMI (DOID:9408): `Value > 0.04 ng/mL AND rise or fall >= 30% within 6 h`
 - `prognostic`, same population: `Admission value > 0.04 ng/mL` for death, MI or
   revascularisation within 30 days
 

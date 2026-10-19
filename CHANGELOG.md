@@ -8,6 +8,34 @@ Concise record of what changed and when. Newest first. Times are America/New_Yor
 
 ---
 
+## 2026-10-19 16:58 (supervisor/opus-5.5 high) T03, T04, T05, T07 applied; DOID corrected
+
+- **T03** New `scripts/ols_lookup.py` (OLS4 web API, standard library only, adapted from
+  `ontology_mapper/src/ols.py`). It replaces the MCP-only route from H04.
+  - `search --type <entity> [--species human]` searches the type's OLS resources in
+    preference order and ranks exact label matches first.
+  - `get <CURIE>` verifies a candidate.
+  - Live check: cardiac troponin I gives `UPKB:P19429`; AMI gives `DOID:9408`; serum gives
+    `UBERON:0001977`.
+- **DOID corrected:** `DOID:5844` is "myocardial infarction"; acute myocardial infarction is
+  **`DOID:9408`**. Fixed in the gold BMKB, both rBCOs, the xlsx BMCONDID, the docs and the
+  template.
+- **T04** New `references/cdisc-ct/` extract (NCI EVS release 2026-09-25: LBTESTCD/LBTEST,
+  IS, GF, SPECTYPE, UNIT, METHOD; 4,246 rows) and `scripts/cdisc_ct.py` (`search`, and
+  `check`, which reports CDISC synonyms). The converter prints `[CT NOTE]` for non-CT values.
+  Evidence ids stay as the documents give them (no PMID requirement).
+- **T05** SKILL.md Step 1 gives an order of precedence (owner policy, then the study data,
+  then study documents, then the generic IFU). Conflicts go in the hand-over report.
+- **T07** The gold tBCO is filled only from the fixtures:
+  - minimum volume, handling, stability and linearity added
+  - matrix set to serum (UBERON:0001977)
+  - regulatory_status set to PLACEHOLDER (no document states it)
+  - R1 outcome changed to acute myocardial infarction
+- `run_checks.py` now covers 9 self-tests and passes; 346/346 gold cells match.
+- End-to-end with no user answers (documents plus OLS and CT lookups): 364/366 cells. The 2
+  differences are BMEVID (the documents give a citation; the gold has a PMID). Logged as T10.
+  A new unit question (CDISC submission value `ug/L` vs `ng/mL`) is logged as T09.
+
 ## 2026-10-19 16:49 (supervisor/opus-5.5 high) end-to-end test; T01, T02, T06, T08 fixed
 
 End-to-end test: the agent followed SKILL.md from `fixtures/troponin_I/` only (not blind: the

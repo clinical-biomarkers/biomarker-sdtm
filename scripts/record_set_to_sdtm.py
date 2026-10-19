@@ -39,6 +39,7 @@ from typing import Any, Optional
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from censor_state import (censor_state_for_reported, fmt_number, make_sdtm_fields,  # noqa: E402
                           normalise_censor_state, parse_reported)
+from cdisc_ct import ct_notes  # noqa: E402
 from finalize_draft import strip_comments  # noqa: E402
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -540,6 +541,13 @@ def main() -> int:
     except ValueError as e:
         print(f"[ERROR] {e}")
         return 1
+    spec = Spec(load_json(a.tbco))
+    for note in ct_notes([(f"{a.domain.upper()}TESTCD" if a.domain.upper() in ("LB", "IS", "GF") else "LBTESTCD",
+                           spec.testcd, "tBCO target.lbtestcd"),
+                          ("SPECTYPE", spec.specimen, "tBCO specimen_type"),
+                          ("UNIT", spec.unit, "tBCO reporting_convention.unit"),
+                          ("METHOD", spec.method, "tBCO assay.method")]):
+        print(f"[CT NOTE] {note}")
     if a.domain.upper() != "LB":
         print(f"[NOTE] {a.domain.upper()} uses the generic specimen-based layout. Add the variables "
               f"that domain requires by hand (see references/sdtmig-guide.md §2 for the PDF page).")
