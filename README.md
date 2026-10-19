@@ -133,7 +133,7 @@ _meaning_.
 We have included a set of simulated clinical documents in the skill package for demos. Try:
 
 ```
-/biomarker-sdtm help me draft a template BioCompute Object using the example troponin_I data available in the fixtures/ folder.
+/biomarker-sdtm help me build a full biomarker record set and SDTM output from the troponin I study documents under the skill's fixtures/ folder. You are not allowed to open anything under the example/ folder in the process.
 ```
 
 > [!TIP]
