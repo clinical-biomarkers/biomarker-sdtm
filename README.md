@@ -5,6 +5,10 @@ An agent skill for transforming clinical data. It converts documents produced fr
 official **BioCompute Object** standard (IEEE 2791) alongside a **BiomarkerKB** record built
 on a unified biomarker knowledge framework.
 
+<p align="center">
+  Jump to <a href="#quick-start">Quick Start</a>
+</p>
+
 ## 🔬 Generate submission-ready SDTM from your study documents
 
 Provide the documents a biomarker study already produces: assay specification,
@@ -22,9 +26,9 @@ into the modern pipeline with ease.
 
 ```mermaid
 flowchart LR
-    docs["Study documents<br/>protocol · context · assay specs · results"]
+    docs["Study Documents<br/>(protocol · context · assay specs · results)"]
     agent["Agent"]
-    sdtm["CDISC SDTM<br/>DM · LB · SUPPLB · BM ..."]
+    sdtm["CDISC SDTM<br/>(DM · LB · SUPPLB · BM ...)"]
 
     subgraph comp["Biomarker record set"]
         direction TB
@@ -53,22 +57,26 @@ SDTM records _what the measured values were_. The record set records _how they w
 and _what they mean_, so the study remains reproducible and comparable long after the
 spreadsheet is gone.
 
-## Underlying standards and knowledge frameworks
+## Standards & knowledge frameworks
 
-**BioCompute Object (BCO).** A BCO is a machine-readable record of _how_ a computation was
+**BioCompute Object (BCO).**
+
+A BCO is a machine-readable record of _how_ a computation was
 performed: the scientific intent, the computational steps, the parameters, the software, and
 the inputs and outputs. It is an IEEE standard (IEEE 2791), community-driven and peer-reviewed. For clinical
 research it supplies a regulatory-grade audit trail, allowing an analysis to be re-executed and
 verified years later rather than accepted on trust.
 
-**BiomarkerKB.** BiomarkerKB is a knowledgebase that records what a biomarker _means_. It
+**BiomarkerKB.**
+
+BiomarkerKB is a knowledgebase that records what a biomarker _means_. It
 captures the measured entity, the condition, and its role (diagnostic, prognostic, monitoring,
 and others) in a controlled vocabulary, so that a finding from one study is directly
 comparable with a finding from another. Full project description can be found in [_Patterns_ (2026)](https://doi.org/10.1016/j.patter.2026.101636).
 For clinical research, it converts one-off biomarker measurements into
 structured evidence that can be pooled, queried, and reused across trials.
 
-Together the two close the gap that SDTM leaves open on its own: SDTM standardises the
+The two close the gap that SDTM leaves open: SDTM standardises the
 _tabulation_, while BioCompute Objects and BiomarkerKB standardise the _provenance_ and the
 _meaning_.
 
@@ -89,12 +97,25 @@ _meaning_.
 
 ### Install as a Claude skill
 
-1. **Download** the repository as a ZIP
-   - On the repository page, choose `< > Code` → `Download ZIP`.
+> [!Note]
+> Skill uploads are not supported on mobile devices. However, you can upload them from a computer and then use them on your phone while signed into your account.
 
-2. **Upload** the ZIP to Claude App
-   - Go to `Settings` → `Skills` → `+ Add` → `Upload skill`.
+1. **Download** the repository as a ZIP
+   - On the repository page, choose `< > Code` → [`Download ZIP`](https://github.com/clinical-biomarkers/biomarker-sdtm/archive/refs/heads/main.zip).
+
+2. **Upload** the ZIP to your preferred application
+
+   > Claude
+   - Go to `Settings` → (Side bar) Customize: `Skills` → `+ Add` dropdown → `Upload skill`.
    - Drag and drop the **ZIP** file to the drop zone → `Upload`.
+
+   > ChatGPT
+   - Go to `Plugins` → Toggle to `Skills` → `Add` → `Upload from your computer`.
+   - Drag and drop the **ZIP** file to the drop zone to upload.
+
+   > Gemini
+   - Go to `Settings` → Preferences: `Skills` → `Create` dropdown → `Upload`.
+   - Drag and drop the **ZIP** file to the drop zone to upload.
 
 3. **Invoke** it from any chat with the slash command:
    - Upload your clinical documents using `+` (Add files).
@@ -113,14 +134,6 @@ _meaning_.
 > [!TIP]
 > Claude also loads `SKILL.md` automatically when a request matches it. Mention BioCompute, a
 > tBCO or rBCO, BiomarkerKB, or SDTM and it will pick the skill up without the slash command.
-
-### Install as a ChatGPT skill
-
-1. Follow step 1 of the [Claude instructions](#install-as-a-claude-skill) to download the ZIP.
-
-2. **Upload** the ZIP to ChatGPT App
-   - Go to `Plugins` → Toggle to `Skills` → `Add` → `Upload from your computer`.
-   - Drag and drop the **ZIP** file to the drop zone to upload.
 
 ## Layout
 
@@ -187,15 +200,15 @@ python record_set_to_sdtm.py --self-test
 > before it is used for anything.
 >
 > - **Not a regulatory submission.** The SDTM domains, BioCompute Objects and BiomarkerKB
->  records it produces are drafts. They are not validated for submission to any health
->  authority, and this skill does not provide regulatory advice. The sponsoring organisation
->  remains responsible for its own submissions and for verifying every value against the
->  source documents.
->- **Verify before relying on it.** Automated extraction from documents can be wrong, and a
->  `PLACEHOLDER` marks a value the documents did not supply; it is not a default. Treat every
->  generated field as a proposal to check, not a fact.
->- **Standards and schemas move.** The output formats follow the versions listed above.
->  Confirm them against the current published versions before submitting.
->- **No warranty or liability.** The skill is provided "as is", without warranty of any kind,
->  express or implied, including fitness for a particular purpose. The authors and their
->  institutions accept no liability for any loss or damage arising from its use.
+>   records it produces are drafts. They are not validated for submission to any health
+>   authority, and this skill does not provide regulatory advice. The sponsoring organisation
+>   remains responsible for its own submissions and for verifying every value against the
+>   source documents.
+> - **Verify before relying on it.** Automated extraction from documents can be wrong, and a
+>   `PLACEHOLDER` marks a value the documents did not supply; it is not a default. Treat every
+>   generated field as a proposal to check, not a fact.
+> - **Standards and schemas move.** The output formats follow the versions listed above.
+>   Confirm them against the current published versions before submitting.
+> - **No warranty or liability.** The skill is provided "as is", without warranty of any kind,
+>   express or implied, including fitness for a particular purpose. The authors and their
+>   institutions accept no liability for any loss or damage arising from its use.
