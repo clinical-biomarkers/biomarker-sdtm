@@ -37,8 +37,8 @@ import sys
 from typing import Any, Optional
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from censor_state import (fmt_number, make_sdtm_fields, normalise_censor_state,  # noqa: E402
-                          parse_reported, resolve_censor_state)
+from censor_state import (censor_state_for_reported, fmt_number, make_sdtm_fields,  # noqa: E402
+                          normalise_censor_state, parse_reported)
 from finalize_draft import strip_comments  # noqa: E402
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -163,8 +163,9 @@ def preflight(spec: Spec, rbcos: list[dict], bmkb: dict, study: dict, evidence: 
     if filled(spec.testcd) and not re.match(r"^[A-Z_][A-Z0-9_]{0,7}$", str(spec.testcd)):
         gaps.append(f"tBCO target.lbtestcd {spec.testcd!r} breaks --TESTCD rules (<= 8 chars, A-Z0-9_)")
     cond = bmkb.get("condition") or {}
-    if not filled(cond.get("id")) or not filled(cond.get("name")):
-        gaps.append("BMKB condition id/name is unfilled")
+    for k in ("id", "name"):
+        if not filled(cond.get(k)):
+            gaps.append(f"BMKB condition.{k} is unfilled")
     roles = [r.get("role") for r in bmkb.get("best_biomarker_role") or []]
     if not roles or not all(filled(r) for r in roles):
         gaps.append("BMKB best_biomarker_role is unfilled")
@@ -229,8 +230,8 @@ def build_findings(spec: Spec, rbcos: list[dict], study: dict, dom: str = "LB") 
                 raise ValueError(f"{usubjid} specimen {m.get('specimen_id')}: no result in study_data")
             reported = str(res.get("result", "")).strip()
             op, number = parse_reported(reported)
-            if op is None and number is not None:
-                expected = resolve_censor_state(number, spec.lod, spec.lloq, spec.uloq)
+            if number is not None:
+                expected = censor_state_for_reported(reported, spec.lod, spec.lloq, spec.uloq)
                 if expected != state:
                     raise ValueError(f"{usubjid} specimen {m.get('specimen_id')}: result {reported} is "
                                      f"{expected} against the tBCO limits, but the rBCO says {state}")

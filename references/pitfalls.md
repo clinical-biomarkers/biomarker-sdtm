@@ -141,6 +141,7 @@ The variable list and provenance letters are in `sdtmig-guide.md` §6, the only 
 | Numeric LBSTRESN below the LoD or above the ULOQ | The zone was not applied | `make_sdtm_fields()` returns the pair; only those two zones get a null |
 | Converter: "result ... is X against the tBCO limits, but the rBCO says Y" | The rBCO censor_state was set by eye or with other limits | Recompute it with `resolve_censor_state()` |
 | Converter: "cannot convert; fill these first" | A converter-critical field is unfilled | See `required-fields.md`; ask the user for each item listed |
+| `validate_bmkb.py`: "template guidance keys left in the record" | The `//_` keys were not stripped | `finalize_draft.py --input <draft> --output BMKB.json --no-etag` |
 | `validate_bmkb.py` FAIL on entity type | Type outside the allowed set or wrong case | `python scripts/biomarker_accessions.py` prints the table |
 | Wrong accession | Resource chosen by guess | `accession_resource_for(<type>)`; confirm the id resolves before using it |
 | BM.BMEVID empty | No `--evidence` given (the record carries none by design) | Pass `--evidence PMID:...` from the context-of-use or protocol |

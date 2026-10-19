@@ -16,6 +16,9 @@ Usage
     state = resolve_censor_state(0.021, 0.006, 0.03, 50.0)   # detected_below_lloq
     lborres, lbstresn = make_sdtm_fields(state, 0.021, 0.006, 0.03, 50.0)
 
+    # a result exactly as the lab reported it, operator included
+    censor_state_for_reported("<0.006", 0.006, 0.03, 50.0)   # below_lod
+
     python scripts/censor_state.py --self-test
 """
 
@@ -140,6 +143,24 @@ def parse_reported(raw: str) -> tuple[Optional[str], Optional[float]]:
         return None, None
 
 
+def censor_state_for_reported(raw: str, lod: float, lloq: float, uloq: float) -> str:
+    """The censor zone of a result as the lab reported it: '0.021', '<0.006', '>50'.
+
+    A number goes through resolve_censor_state(). A '<' bound at or below the LoD
+    is below_lod; a '<' bound above the LoD (e.g. '<0.03') is detected_below_lloq;
+    any '>' bound is above_uloq. Text that is neither raises ValueError.
+    """
+    check_limits(lod, lloq, uloq)
+    op, number = parse_reported(raw)
+    if number is None:
+        raise ValueError(f"result {raw!r} is neither a number nor '<x' / '>x'")
+    if op is None:
+        return resolve_censor_state(number, lod, lloq, uloq)
+    if op == ">":
+        return "above_uloq"
+    return "below_lod" if number <= lod else "detected_below_lloq"
+
+
 # ---------------------------------------------------------------------------
 # Reverse direction (SDTM → record set)
 # ---------------------------------------------------------------------------
@@ -223,6 +244,18 @@ def _self_test() -> int:
         except ValueError:
             pass
 
+    for raw, expected in (("0.021", "detected_below_lloq"), ("<0.006", "below_lod"),
+                          ("< 0.006", "below_lod"), ("<0.03", "detected_below_lloq"),
+                          (">50", "above_uloq"), ("0.058", "quantifiable")):
+        got = censor_state_for_reported(raw, LOD, LLOQ, ULOQ)
+        if got != expected:
+            errors.append(f"censor_state_for_reported({raw!r}) = {got}, expected {expected}")
+    try:
+        censor_state_for_reported("NEGATIVE", LOD, LLOQ, ULOQ)
+        errors.append("censor_state_for_reported should reject text")
+    except ValueError:
+        pass
+
     reverse = [
         ("<0.006", "", LOD, LLOQ, ULOQ, "below_lod"),
         ("< 0.006", "", LOD, LLOQ, ULOQ, "below_lod"),
@@ -244,7 +277,7 @@ def _self_test() -> int:
         for e in errors:
             print(f"  - {e}")
         return 1
-    n = len(forward) * 2 + 2 + len(must_raise) + len(reverse)
+    n = len(forward) * 2 + 2 + len(must_raise) + len(reverse) + 7
     print(f"[SELF-TEST] PASSED — {n} checks (forward, guards, reverse)")
     return 0
 

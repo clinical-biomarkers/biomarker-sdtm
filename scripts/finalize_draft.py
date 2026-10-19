@@ -17,6 +17,8 @@ Usage
     python finalize_draft.py --input draft.json --output tBCO.json
     python finalize_draft.py --input draft.json          # rewrite in place
     python finalize_draft.py --input draft.json --check  # verify etag, write nothing
+    python finalize_draft.py --input BMKB.draft.json --output BMKB.json --no-etag
+                                                         # strip //_ keys only (BMKB record)
     python finalize_draft.py --self-test
 
 etag definition
@@ -162,6 +164,8 @@ def main() -> None:
     )
     parser.add_argument("--input", help="Draft BCO JSON file")
     parser.add_argument("--output", help="Output path (default: rewrite --input in place)")
+    parser.add_argument("--no-etag", action="store_true",
+                        help="Only strip //_ annotation keys (for the BMKB record, which has no etag)")
     parser.add_argument("--check", action="store_true",
                         help="Verify the existing etag; write nothing")
     parser.add_argument("--self-test", action="store_true",
@@ -183,12 +187,15 @@ def main() -> None:
         print(f"[{'OK' if ok else 'MISMATCH'}] {args.input}{why if not ok else ''}")
         sys.exit(0 if ok else 1)
 
-    out = finalize(obj)
+    out = strip_comments(obj) if args.no_etag else finalize(obj)
     dest = args.output or args.input
     with open(dest, "w") as f:
         json.dump(out, f, indent=2, ensure_ascii=False)
         f.write("\n")
-    print(f"[DONE] finalized -> {dest}  (etag={out['etag'][:12]}…)")
+    if args.no_etag:
+        print(f"[DONE] stripped annotations -> {dest}")
+    else:
+        print(f"[DONE] finalized -> {dest}  (etag={out['etag'][:12]}…)")
 
 
 if __name__ == "__main__":

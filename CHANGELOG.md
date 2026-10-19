@@ -8,6 +8,27 @@ Concise record of what changed and when. Newest first. Times are America/New_Yor
 
 ---
 
+## 2026-10-19 16:49 (supervisor/opus-5.5 high) end-to-end test; T01, T02, T06, T08 fixed
+
+End-to-end test: the agent followed SKILL.md from `fixtures/troponin_I/` only (not blind: the
+tester had seen the gold).
+- Without OLS: the converter stops on `BMKB condition.id` (as designed).
+- With the user's answers (DOID, UniProt CURIE, PMID): the agent-built SDTM matches 366/366
+  gold cells after the fixes below (362/366 before).
+
+Findings T01 to T08 are in the tracker. T03, T04, T05 and T07 are waiting on owner decisions.
+- **T01** `finalize_draft.py --no-etag` strips `//_` keys from the BMKB draft (Step 4).
+  `validate_bmkb.py` now points to that command, rather than reporting 11 unexpected fields.
+- **T02** New `censor_state.censor_state_for_reported()` handles results as reported
+  (`<0.006`, `>50`). The converter uses it to check bounded results against the rBCO as well.
+- **T06** Naming rule:
+  - tBCO: `PLACEHOLDER_<Biomarker>_tBCO`
+  - rBCO: `PLACEHOLDER_<Biomarker>_<USUBJID>_<run_id>_rBCO`
+  - with no run ids, `R-<YYYY>-<MMDD>-01` from the collection date
+  The gold rBCO object ids (and the xlsx RBCOID cells) were renamed to follow it and
+  re-finalized.
+- **T08** The preflight names `condition.id` and `condition.name` separately.
+
 ## 2026-10-19 15:59 (supervisor/opus-5.5 high) remaining owner decisions applied: scripts, templates, gold, docs
 
 `python scripts/run_checks.py` now passes: 7/7 self-tests, and 346/346 cells against the gold xlsx

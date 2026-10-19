@@ -84,7 +84,8 @@ mapping in the hand-over report.
 ### Step 2: Write the tBCO (one per assay)
 
 Fill `assets/tbco_template.json`. Keys starting with `//_` are guidance for you; keep them while
-drafting. Leave `etag` alone. Then:
+drafting. Leave `etag` alone. Name it
+`https://biocomputeobject.org/PLACEHOLDER_<Biomarker>_tBCO/1.0.0`. Then:
 
 ```bash
 python scripts/finalize_draft.py --input tBCO.draft.json --output tBCO.json
@@ -108,7 +109,9 @@ filled in; that text becomes BM.BMRULE.
 ### Step 3: Write one rBCO per subject per analytical run
 
 Fill `assets/rbco_template.json` for each subject and run; `provenance_domain.derived_from` is the
-tBCO `object_id`. It records how the run went and each specimen's id, visit, collection time and
+tBCO `object_id`. Name it `.../PLACEHOLDER_<Biomarker>_<USUBJID>_<run_id>_rBCO/1.0.0`. If the
+documents give no run ids, treat each subject's collection date as one run, use
+`R-<YYYY>-<MMDD>-01`, and list that assumption in the hand-over report. It records how the run went and each specimen's id, visit, collection time and
 censor state; never the result value or any demographic. Set `censor_state` with the module, never
 by eye:
 
@@ -117,6 +120,8 @@ PYTHONPATH=scripts python -c "from censor_state import resolve_censor_state as r
 # detected_below_lloq
 ```
 
+For a result exactly as the lab reported it, operator included (`<0.006`, `>50`), use
+`censor_state_for_reported(raw, lod, lloq, uloq)` from the same module.
 `make_sdtm_fields(state, value, lod, lloq, uloq)` returns the matching LBORRES/LBSTRESN pair. The
 zone table is in `references/pitfalls.md` §1. Finalize and validate each rBCO as in Step 2.
 
@@ -147,11 +152,12 @@ emit the fields BiomarkerKB assigns (`biomarker_id`, `biomarker_canonical_id`, `
 - **Name cache:** add `"<accession exactly as in assessed_biomarker_entity_id>": "<entity name>"` to
   `assets/entity_names.json`. Without it BM.BMENTNM comes out empty.
 
+Strip the `//_` guidance keys (there is no etag), then validate:
+
 ```bash
+python scripts/finalize_draft.py --input BMKB.draft.json --output BMKB.json --no-etag
 python scripts/validate_bmkb.py BMKB.json
 ```
-
-There is no etag, so no finalize step.
 
 ### Step 5: Validation gate (before any conversion)
 

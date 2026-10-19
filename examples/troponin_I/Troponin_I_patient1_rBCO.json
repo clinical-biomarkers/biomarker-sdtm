@@ -1,7 +1,7 @@
 {
-  "object_id": "https://biocomputeobject.org/PLACEHOLDER_Troponin_I_patient1_rBCO/1.0.0",
+  "object_id": "https://biocomputeobject.org/PLACEHOLDER_Troponin_I_BM-2026-01-001_R-2026-0315-01_rBCO/1.0.0",
   "spec_version": "https://w3id.org/ieee/ieee-2791-schema/2791object.json",
-  "etag": "41d08e3ad8a0b0031a08fc8d3b01f112e9e357b8141ac889d73e9d6541749dd7",
+  "etag": "c7b0dbb5fc6ffbf7c37d0936ffa64a7357b34307bf12a8b1a6c353468d7d9c36",
   "provenance_domain": {
     "name": "Cardiac troponin I, subject BM-2026-01-001, run R-2026-0315-01",
     "version": "1.0",

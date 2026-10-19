@@ -76,7 +76,11 @@ def validate(obj: dict) -> list[str]:
     missing = REQUIRED_TOP - set(obj)
     if missing:
         errors.append(f"missing required top-level field(s): {sorted(missing)}")
-    extra = set(obj) - ALLOWED_TOP
+    notes = sorted(k for k in obj if k.startswith("//_"))
+    if notes:
+        errors.append(f"template guidance keys left in the record ({len(notes)} //_ keys): run "
+                      f"`python scripts/finalize_draft.py --input <draft> --output BMKB.json --no-etag`")
+    extra = {k for k in set(obj) - ALLOWED_TOP if not k.startswith("//_")}
     if extra:
         errors.append(f"unexpected top-level field(s): {sorted(extra)}")
     emitted = ASSIGNED & set(obj)
@@ -223,6 +227,11 @@ def _self_test() -> int:
         template = strip_comments(json.load(f))
     if validate(template):
         failures.append(f"blank template should validate with warnings only: {validate(template)}")
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets",
+                           "bmkb_template.json")) as f:
+        raw_template = json.load(f)
+    if not any("--no-etag" in e for e in validate(raw_template)):
+        failures.append("unstripped template should fail with a pointer to --no-etag")
 
     if failures:
         print("[SELF-TEST] FAILED:")
