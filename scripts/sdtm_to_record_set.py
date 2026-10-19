@@ -24,16 +24,15 @@ Mapping reference: references/sdtmig-guide.md (Reverse Direction section).
 from __future__ import annotations
 
 import csv
-import hashlib
 import json
 import os
-import re
 import sys
-from copy import deepcopy
 from typing import Any, Optional
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from censor_state import derive_censor_state_from_sdtm  # noqa: E402
 from finalize_draft import compute_etag  # noqa: E402
+from record_set_to_sdtm import _make_grpid  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -41,10 +40,7 @@ from finalize_draft import compute_etag  # noqa: E402
 # ---------------------------------------------------------------------------
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_VAULT = os.path.abspath(os.path.join(_HERE, "..", "..", "..", "..", ".."))
-_TROPI = os.path.join(
-    _HERE, "..", "examples", "troponin_I"
-)
+_TROPI = os.path.join(_HERE, "..", "examples", "troponin_I")
 
 
 # ---------------------------------------------------------------------------
@@ -92,7 +88,6 @@ def _group_supplb(
     - result_quals: {lbseq_str: {QNAM: QVAL, ...}} — per LBSEQ
     """
     assay_quals: dict[str, dict[str, str]] = {}
-    result_quals: dict[str, dict[str, str]] = {}
     # Per-result groups: {idvarval: {qnam: qval}}
     result_groups: dict[str, dict[str, str]] = {}
 
@@ -118,12 +113,6 @@ def _group_supplb(
 # ---------------------------------------------------------------------------
 # Reconstruct tBCO
 # ---------------------------------------------------------------------------
-
-def _make_grpid(assay_name: str) -> str:
-    """Derive a short group ID from an assay name, e.g. 'TnI-Ultra' → 'TNIULTRA'."""
-    cleaned = re.sub(r"[^a-zA-Z0-9]", "", assay_name).upper()
-    return cleaned[:20]
-
 
 def reconstruct_tbco(
     lb_rows: list[dict[str, str]],
@@ -333,59 +322,9 @@ def reconstruct_tbco(
 # Reconstruct rBCO
 # ---------------------------------------------------------------------------
 
-def _derive_censor_state(
-    lborres: str,
-    lbstressn_str: str,
-    lod: Optional[float],
-    lloq: Optional[float],
-    uloq: Optional[float],
-) -> str:
-    """Infer censor_state from LB result string and numeric value.
-
-    Lower-level heuristic: if LBSTRESN is populated, value ≥ LLOQ → check
-    quantifiable vs above_uloq. If LBSTRESN is empty, examine LBORRES pattern.
-    """
-    lbstressn: Optional[float] = None
-    if lbstressn_str:
-        try:
-            lbstressn = float(lbstressn_str)
-        except ValueError:
-            pass
-
-    if lbstressn is not None:
-        if uloq is not None and lbstressn > uloq:
-            return "above_uloq"
-        if lloq is not None and lbstressn >= lloq:
-            return "quantifiable"
-        return "detected_below_lloq"
-
-    if lborres.startswith("<"):
-        # Try to extract the number after <
-        m = re.match(r"<([\d.]+)", lborres)
-        if m:
-            val = float(m.group(1))
-            if lod is not None and val <= lod:
-                return "below_lod"
-            return "detected_below_lloq"
-        if "lod" in lborres.lower():
-            return "below_lod"
-        return "detected_below_lloq"
-
-    if lborres.startswith(">"):
-        return "above_uloq"
-
-    # Fallback — if there's a numeric value, assume quantifiable
-    try:
-        float(lborres)
-        return "quantifiable"
-    except ValueError:
-        return "detected_below_lloq"
-
-
 def reconstruct_rbco(
     lb_rows: list[dict[str, str]],
     supplb: list[dict[str, str]],
-    bm_rows: list[dict[str, str]],
     tbco: dict[str, Any],
     studyid: str,
     usubjid: str,
@@ -459,7 +398,8 @@ def reconstruct_rbco(
         if str(idvarval) in result_quals:
             censor_state = result_quals[str(idvarval)].get("CENSOR", "")
         if not censor_state:
-            censor_state = _derive_censor_state(lborres, lbstressn_str, lod, lloq, uloq)
+            censor_state = derive_censor_state_from_sdtm(
+                lborres, lbstressn_str, lod, lloq, uloq)
 
         measurements.append({
             "idvar": "LBSEQ",
@@ -559,7 +499,7 @@ def reconstruct_rbco(
                     ],
                     "supplb_derivation": [
                         {"qnam": "ASSAYNAM", "qorig": "CRF", "qeval": "VENDOR",
-                         "resolves_in": "tBCO", "path": "assay.name"},
+                         "resolves_in": "tBCO", "path": "assay.assay_name"},
                         {"qnam": "ASSAYPLT", "qorig": "CRF", "qeval": "VENDOR",
                          "resolves_in": "tBCO", "path": "assay.platform"},
                         {"qnam": "LBLOD", "qorig": "CRF", "qeval": "VENDOR",
@@ -610,11 +550,7 @@ def reconstruct_rbco(
 # Reconstruct BMKB
 # ---------------------------------------------------------------------------
 
-def reconstruct_bmkb(
-    bm_rows: list[dict[str, str]],
-    tbco: dict[str, Any],
-    studyid: str,
-) -> dict[str, Any]:
+def reconstruct_bmkb(bm_rows: list[dict[str, str]]) -> dict[str, Any]:
     """Rebuild a BMKB record JSON from the BM SDTM dataset.
 
     Returns a dict matching the BiomarkerKB API response structure.
@@ -624,43 +560,13 @@ def reconstruct_bmkb(
 
     bm_row = bm_rows[0]
 
-    entity_name = bm_row.get("BMENTNM", "")
     entity_id = bm_row.get("BMENTID", "")
     entity_type = bm_row.get("BMENTTP", "protein")
     cv_term = bm_row.get("BMCVTERM", "")
     role = bm_row.get("BMROLE", "monitoring")
     cond_name = bm_row.get("BMCOND", "")
     cond_id = bm_row.get("BMCONDID", "")
-    evidence_raw = bm_row.get("BMEVID", "")
     bm_id = bm_row.get("BMID", "BM-001")
-    bm_ver = bm_row.get("BMVER", "1.0")
-
-    # Parse evidence PMIDs from comma-separated list
-    pmids = [e.strip() for e in evidence_raw.split(",") if e.strip()]
-
-    # Build evidence_source entries
-    evidence_source: list[dict[str, Any]] = []
-    for pmid in pmids:
-        entry: dict[str, Any] = {
-            "id": pmid,
-            "database": "PubMed",
-            "url": f"https://pubmed.ncbi.nlm.nih.gov/{pmid}",
-        }
-        evidence_source.append(entry)
-
-    # Uniprot ID from entity_id (strip prefix)
-    uniprot_id = entity_id.replace("UPKB:", "") if entity_id else ""
-
-    # Assay info from tBCO
-    ext_t = (
-        tbco.get("extension_domain", [{}])[0]
-        .get("assay_protocol_extension", {})
-    )
-    assay = ext_t.get("assay", {})
-    assay_name = assay.get("assay_name", bm_row.get("BMASSAY", ""))
-    assay_platform = (
-        assay.get("platform", "") or bm_row.get("BMPLAT", "")
-    )
 
     # Build condition block (submission schema: id, lowercase name, resource)
     condition: dict[str, Any] = {
@@ -725,8 +631,7 @@ def main():
     args = parser.parse_args()
 
     if args.self_test:
-        self_test()
-        return
+        sys.exit(0 if self_test() else 1)
 
     # Validate inputs
     paths = [args.dm, args.lb, args.supplb, args.bm]
@@ -750,8 +655,8 @@ def main():
 
     # Reconstruct
     tbco = reconstruct_tbco(lb_rows, supplb_rows, bm_rows, studyid)
-    rbco = reconstruct_rbco(lb_rows, supplb_rows, bm_rows, tbco, studyid, usubjid)
-    bmkb = reconstruct_bmkb(bm_rows, tbco, studyid)
+    rbco = reconstruct_rbco(lb_rows, supplb_rows, tbco, studyid, usubjid)
+    bmkb = reconstruct_bmkb(bm_rows)
 
     # Output
     os.makedirs(args.output_dir, exist_ok=True)
@@ -776,184 +681,117 @@ def main():
 # Self-test
 # ---------------------------------------------------------------------------
 
-def self_test():
-    """Run a self-test against the Troponin I gold TSVs."""
+def self_test() -> bool:
+    """Reconstruct the record set from the forward self-test's TSVs and check
+    it against the gold Troponin I JSON (patient 1).
+
+    Reads fixtures/troponin_I/_output/sdtm_self_test/, which
+    ``record_set_to_sdtm.py --self-test`` writes, so run that first.
+    Returns True only if every check passes.
+    """
     print("=" * 60)
     print("sdtm_to_record_set.py — Self-test")
     print("=" * 60)
 
     tsv_dir = os.path.join(_HERE, "..", "fixtures", "troponin_I", "_output", "sdtm_self_test")
-    dm_path = os.path.join(tsv_dir, "DM.tsv")
-    lb_path = os.path.join(tsv_dir, "LB.tsv")
-    supplb_path = os.path.join(tsv_dir, "SUPPLB.tsv")
-    bm_path = os.path.join(tsv_dir, "BM.tsv")
-
-    for p in [dm_path, lb_path, supplb_path, bm_path]:
+    paths = {name: os.path.join(tsv_dir, f"{name}.tsv")
+             for name in ("DM", "LB", "SUPPLB", "BM")}
+    for p in paths.values():
         if not os.path.exists(p):
             print(f"[FAIL] Required self-test file not found: {p}")
-            sys.exit(1)
-        print(f"[OK] Found input: {os.path.relpath(p)}")
+            print("       Run `python record_set_to_sdtm.py --self-test` first.")
+            return False
 
-    # Read TSVs
-    dm_rows = _read_tsv(dm_path)
-    lb_rows = _read_tsv(lb_path)
-    supplb_rows = _read_tsv(supplb_path)
-    bm_rows = _read_tsv(bm_path)
-
-    print(f"\nDM: {len(dm_rows)} row(s), LB: {len(lb_rows)} row(s), "
+    dm_rows = _read_tsv(paths["DM"])
+    lb_rows = _read_tsv(paths["LB"])
+    supplb_rows = _read_tsv(paths["SUPPLB"])
+    bm_rows = _read_tsv(paths["BM"])
+    print(f"DM: {len(dm_rows)} row(s), LB: {len(lb_rows)} row(s), "
           f"SUPPLB: {len(supplb_rows)} row(s), BM: {len(bm_rows)} row(s)")
+
+    def _gold(name: str) -> dict:
+        with open(os.path.join(_TROPI, name)) as f:
+            return json.load(f)
+
+    gold_t = _gold("Troponin_I_tBCO.json")
+    gold_r = _gold("Troponin_I_patient1_rBCO.json")
+    gold_k = _gold("Troponin_I_biomarkerKB.json")
+    gold_ext_t = gold_t["extension_domain"][0]["assay_protocol_extension"]
+    gold_ext_r = gold_r["extension_domain"][0]["assay_run_extension"]
 
     studyid = dm_rows[0].get("STUDYID", "")
     usubjid = dm_rows[0].get("USUBJID", "")
-    print(f"Study: {studyid}, Subject: {usubjid}")
-
-    # --- Reconstruct tBCO ---
-    print("\n--- Reconstructing tBCO ---")
     tbco = reconstruct_tbco(lb_rows, supplb_rows, bm_rows, studyid)
-    ext_t = (
-        tbco.get("extension_domain", [{}])[0]
-        .get("assay_protocol_extension", {})
-    )
+    rbco = reconstruct_rbco(lb_rows, supplb_rows, tbco, studyid, usubjid)
+    bmkb = reconstruct_bmkb(bm_rows)
 
-    # Verify key fields
-    checks = [
-        ("object_id", tbco.get("object_id", ""), bool(tbco.get("object_id"))),
-        ("spec_version", tbco.get("spec_version", ""),
-         "ieee" in tbco.get("spec_version", "")),
-        ("assay.assay_name", ext_t.get("assay", {}).get("assay_name", ""),
-         bool(ext_t.get("assay", {}).get("assay_name", ""))),
-        ("assay.method", ext_t.get("assay", {}).get("method", ""), True),
-        ("specimen_requirements.specimen_type",
-         ext_t.get("specimen_requirements", {}).get("specimen_type", ""), True),
-        ("analytical_performance.lod",
-         ext_t.get("analytical_performance", {}).get("limit_of_detection", {}).get("value"),
-         True),
-        ("reference_limits", bool(ext_t.get("reference_limits")), True),
-    ]
-    for label, val, expected in checks:
-        status = "[OK]" if expected else "[WARN]"
-        print(f"  {status} {label}: {val}")
+    failures: list[str] = []
+    n_checks = 0
 
-    # --- Reconstruct rBCO ---
-    print("\n--- Reconstructing rBCO ---")
-    rbco = reconstruct_rbco(lb_rows, supplb_rows, bm_rows, tbco, studyid, usubjid)
-    ext_r = (
-        rbco.get("extension_domain", [{}])[0]
-        .get("assay_run_extension", {})
-    )
-    measurements = ext_r.get("measurements", [])
-    sdtm_ext = (
-        rbco.get("extension_domain", [{}])[1]
-        .get("sdtm_extension", {})
-    ) if len(rbco.get("extension_domain", [])) > 1 else {}
-
-    print(f"  Measurements: {len(measurements)} rows")
-    print(f"  derived_from: {rbco.get('provenance_domain', {}).get('derived_from', '')}")
-
-    # Verify measurement details
-    for m in measurements:
-        censor = m.get("censor_state", "")
-        visit = m.get("visit", "")
-        specimen_id = m.get("specimen_id", "")
-        print(f"    LBSEQ={m.get('idvarval')} visit={visit} "
-              f"censor={censor} specimen={specimen_id}")
-
-    # Verify SDTM extension
-    datasets = sdtm_ext.get("datasets", [])
-    for ds in datasets:
-        print(f"  SDTM dataset: {ds.get('name')} → {ds.get('rows_for_this_subject')} rows")
-
-    # --- Reconstruct BMKB ---
-    print("\n--- Reconstructing BMKB ---")
-    bmkb = reconstruct_bmkb(bm_rows, tbco, studyid)
-
-    checks_bmkb = [
-        ("biomarker_id", bmkb.get("biomarker_id", ""), bool(bmkb.get("biomarker_id"))),
-        ("condition.id",
-         bmkb.get("condition", {}).get("id", ""), "DOID" in bmkb.get("condition", {}).get("id", "")),
-        ("condition.recommended_name.name",
-         bmkb.get("condition", {}).get("recommended_name", {}).get("name", ""), True),
-        ("best_biomarker_role",
-         bmkb.get("best_biomarker_role", [{}])[0].get("role", ""), True),
-        ("assessed_biomarker_entity_id",
-         bmkb.get("biomarker_component", [{}])[0].get("assessed_biomarker_entity_id", ""),
-         True),
-        ("evidence_source count", len(bmkb.get("evidence_source", [])), True),
-    ]
-    for label, val, expected in checks_bmkb:
-        status = "[OK]" if expected else "[WARN]"
-        print(f"  {status} {label}: {val}")
-
-    # --- Round-trip check: reconstruct LB rows from rBCO measurements ---
-    print("\n--- Round-trip verification ---")
-    all_pass = True
-
-    # Compare measurement count
-    if len(measurements) == len(lb_rows):
-        print(f"[OK] Measurement count matches LB row count: {len(measurements)}")
-    else:
-        print(f"[FAIL] Measurement count ({len(measurements)}) != LB row count ({len(lb_rows)})")
-        all_pass = False
-
-    # Compare SUPPLB qualifier count (rough)
-    supplb_qual_count = sum(1 for r in supplb_rows if r.get("QNAM") != "")
-    sdtm_deriv_count = len(sdtm_ext.get("supplb_derivation", []))
-    print(f"[OK] SUPPLB qualifiers: {supplb_qual_count} (scanned), "
-          f"supplb_derivation entries: {sdtm_deriv_count}")
-
-    # Compare censor states
-    for m in measurements:
-        iv = m.get("idvarval")
-        censor_reconstructed = m.get("censor_state", "")
-        censor_from_supplb = supplb_rows_utils(supplb_rows, str(iv))
-        if censor_from_supplb:
-            match = censor_reconstructed == censor_from_supplb
-            if not match:
-                print(f"  [FAIL] LBSEQ={iv}: reconstructed censor='{censor_reconstructed}' "
-                      f"≠ SUPPLB='{censor_from_supplb}'")
-                all_pass = False
-            else:
-                print(f"  [OK] LBSEQ={iv}: censor='{censor_reconstructed}' (round-trip match)")
-
-    # Verify BM fields round-trip
-    if bm_rows:
-        bm_row = bm_rows[0]
-        bm_entity = bmkb.get("biomarker_component", [{}])[0].get(
-            "assessed_biomarker_entity_id", ""
-        )
-        expected_entity = bm_row.get("BMENTID", "")
-        match_id = bm_entity == expected_entity
-        if not match_id:
-            print(f"  [FAIL] BMKB entity_id '{bm_entity}' ≠ BM BMENTID '{expected_entity}'")
-            all_pass = False
+    def check(label: str, got: Any, expected: Any) -> None:
+        nonlocal n_checks
+        n_checks += 1
+        if got == expected:
+            print(f"  [OK]   {label}: {got!r}")
         else:
-            print(f"  [OK] BMKB entity_id round-trip: {bm_entity}")
+            print(f"  [FAIL] {label}: got {got!r}, expected {expected!r}")
+            failures.append(label)
 
-        bm_cond = bmkb.get("condition", {}).get("id", "")
-        expected_cond = bm_row.get("BMCONDID", "")
-        match_cond = bm_cond == expected_cond
-        if not match_cond:
-            print(f"  [FAIL] BMKB condition.id '{bm_cond}' ≠ BM BMCONDID '{expected_cond}'")
-            all_pass = False
-        else:
-            print(f"  [OK] BMKB condition.id round-trip: {bm_cond}")
+    # --- tBCO ---
+    print("\n--- tBCO ---")
+    ext_t = tbco["extension_domain"][0]["assay_protocol_extension"]
+    check("object_id", tbco["object_id"], gold_t["object_id"])
+    check("spec_version", tbco["spec_version"], gold_t["spec_version"])
+    check("etag", tbco["etag"], compute_etag(tbco))
+    check("spec_id", ext_t["spec_id"], gold_ext_t["spec_id"])
+    for field in ("assay_name", "manufacturer", "platform", "method", "loinc_code"):
+        check(f"assay.{field}", ext_t["assay"][field], gold_ext_t["assay"][field])
+    for field in ("limit_of_detection", "limit_of_quantitation",
+                  "upper_limit_of_quantitation"):
+        check(f"analytical_performance.{field}",
+              ext_t["analytical_performance"][field]["value"],
+              gold_ext_t["analytical_performance"][field]["value"])
+    check("reference_limits[0].value",
+          (ext_t["reference_limits"] or [{}])[0].get("value"),
+          gold_ext_t["reference_limits"][0]["value"])
+    check("interpretation_rules[0].expression",
+          (ext_t["interpretation_rules"] or [{}])[0].get("expression"),
+          gold_ext_t["interpretation_rules"][0]["expression"])
+
+    # --- rBCO ---
+    print("\n--- rBCO ---")
+    ext_r = rbco["extension_domain"][0]["assay_run_extension"]
+    check("object_id", rbco["object_id"], gold_r["object_id"])
+    check("derived_from", rbco["provenance_domain"]["derived_from"],
+          gold_r["provenance_domain"]["derived_from"])
+    check("specification.tbco_object_id", ext_r["specification"]["tbco_object_id"],
+          gold_ext_r["specification"]["tbco_object_id"])
+    check("studyid", ext_r["studyid"], gold_ext_r["studyid"])
+    check("usubjid", ext_r["usubjid"], gold_ext_r["usubjid"])
+    measurements = ext_r["measurements"]
+    gold_meas = gold_ext_r["measurements"]
+    check("measurement count", len(measurements), len(gold_meas))
+    for m, g in zip(measurements, gold_meas):
+        for field in ("idvarval", "lbtestcd", "visit", "specimen_id",
+                      "collection_dtc", "censor_state"):
+            check(f"measurements[{g['idvarval']}].{field}", m[field], g[field])
+    sdtm_paths = {d["qnam"]: d["path"]
+                  for d in rbco["extension_domain"][1]["sdtm_extension"]["supplb_derivation"]}
+    check("sdtm_extension ASSAYNAM path", sdtm_paths.get("ASSAYNAM"), "assay.assay_name")
+
+    # --- BMKB ---
+    print("\n--- BMKB ---")
+    check("condition", bmkb["condition"], gold_k["condition"])
+    check("best_biomarker_role", bmkb["best_biomarker_role"], gold_k["best_biomarker_role"])
+    check("biomarker_component", bmkb["biomarker_component"], gold_k["biomarker_component"])
 
     print()
-    if all_pass:
-        print("[PASS] Self-test: all checks passed.")
-    else:
-        print("[FAIL] Self-test: one or more checks failed.")
-
-    return all_pass
-
-
-def supplb_rows_utils(supplb_rows: list[dict[str, str]], lbseq_str: str) -> str:
-    """Helper for self-test: find CENSOR in SUPPLB for a given LBSEQ."""
-    for row in supplb_rows:
-        if row.get("IDVAR") == "LBSEQ" and row.get("IDVARVAL") == lbseq_str:
-            if row.get("QNAM") == "CENSOR":
-                return row.get("QVAL", "")
-    return ""
+    if failures:
+        print(f"[FAIL] Self-test: {len(failures)} of {n_checks} checks failed: "
+              f"{', '.join(failures)}")
+        return False
+    print(f"[PASS] Self-test: all {n_checks} checks passed.")
+    return True
 
 
 if __name__ == "__main__":

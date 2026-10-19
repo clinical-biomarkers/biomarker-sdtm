@@ -8,11 +8,9 @@ Concise record of what changed and when. Newest first. Times are America/New_Yor
 
 ---
 
-## 2026-10-19 12:10 (owner decisions applied: docs, templates)
+## 2026-10-19 12:10 (supervisor/opus-5.5 high) major decisions applied: docs, templates
 
-Applies the owner's decisions recorded in the tracker. Script changes happen separately on branch
-`claude/vigorous-chatterjee-b2bc63`.
-- **SKILL.md** rewritten, 409 → 241 lines (H08, target < 300). It now opens with a per-task routing
+- **SKILL.md** rewritten and shortened. It now opens with a per-task routing
   table (H01) and has a single missing-value policy (P04: strings PLACEHOLDER, numbers null;
   LoD/LLOQ/ULOQ, unit, specimen, condition, role and evidence block conversion and are asked for).
   A validation gate now runs before conversion, plus a hand-over report step (H03). The reverse
@@ -41,7 +39,30 @@ Applies the owner's decisions recorded in the tracker. Script changes happen sep
   sdtmig-guide.md §6.
 - Still waiting on owner decisions: B02, B04, B08, H02, H04, H06, H07, H09, P05, P10.
 
-## 2026-10-19 11:07 (review) — full-repo code review, no code changed
+## 2026-10-19 12:03 (supervisor/opus 5.5-high) - fixed scripts: mechanical review fixes
+
+Scripts only; no gold files edited. `python scripts/run_checks.py` runs every self-test plus a
+cell-by-cell forward-vs-xlsx gold comparison, and exits 1 on any failure.
+
+- **B01** Read `assay.assay_name` (was `assay.name`): ASSAYNAM `TnI-Ultra`, LBGRPID `TNIULTRA`,
+  BMASSAY `TnI-Ultra`. Also fixed in the reverse `sdtm_extension` paths.
+- **B05** `validate_bco.py` validates against `references/schemas/` through a local
+  `referencing.Registry`; schema errors fail the file, and jsonschema is now required.
+- **B07** Reverse self-test asserts 42 fields against the gold JSON and exits 1 on failure.
+- **R01/R02** Reverse uses `censor_state.derive_censor_state_from_sdtm` and the shared `_make_grpid`.
+- **R04** Dead code, unused params, `generated_*` lookups and schema-v1 fallbacks removed.
+- **B12** SUPPLB CENSOR `IDVARVAL` is taken from the built LB rows (= LBSEQ, int).
+- **B11 (partial)** LBBLFL is `Y` or null.
+- **P04** Null analytical limits are tolerated: LBLOD/LBLLOQ/LBULOQ are omitted, and a
+  censored result with no value and a null limit raises a clear `ValueError`, as does
+  `censor_state` on a null threshold.
+- **R05/F04** New `scripts/run_checks.py`. **P11** all scripts run from any cwd (verified).
+- **Open:** run_checks fails on (a) 22 gold BCO schema errors (tBCO: `io_domain` `mediatype`,
+  `parametric_domain` `step`/`rule`/`unit`; rBCO: `pipeline_steps[].prerequisite` strings,
+  `mediatype`) and (b) 5 xlsx cells that the gold JSON does not produce: LBTEST case ×3,
+  BMCOND case, BMRULE text. LBBLFL `N` in the xlsx is reported as a known deviation.
+
+## 2026-10-19 11:07 (supervisor) — full-repo code review, no code changed
 
 Staged review (low level: scripts, redundancy, prompts; high level: routing, missing data /
 ontology, SDTM domain selection, BEST roles, SKILL.md length). **Review only. No script,
@@ -49,6 +70,7 @@ template or reference was edited.** All self-tests still pass, but several of th
 (see R-tests). The issue IDs below match the workflow/issue-tracker artifact.
 
 **Bugs confirmed by running the code**
+
 - **B01** `record_set_to_sdtm._get_assay_info()` reads `assay.name`. The template and the gold
   file use `assay.assay_name`, so `ASSAYNAM`=`Tniultra` and `LBGRPID`/`BMASSAY`=`TNNI3TNIULTRA`.
   This is the root cause of adjudication TROPI-004/005, which are currently blamed on the model.
@@ -71,8 +93,8 @@ template or reference was edited.** All self-tests still pass, but several of th
 - **B11** `LBBLFL='N'` (SDTMIG allows only `Y` or null). `LBLOBXFL` and `VISITNUM` are missing.
 - **B12** The SUPPLB CENSOR `IDVARVAL` (measurement idvarval) can drift from the re-numbered
   `LBSEQ`.
-- B13 to B19 are minor (NRIND boundary, `not_detected` state, PLACEHOLDER passes validate_bmkb,
-  `--check` ignores `//_` keys, header-less empty TSV, the `<` regex).
+- B13 to B19 are minor (NRIND boundary, `not_detected` state, PLACEHOLDER passes validate*bmkb,
+  `--check` ignores `//*`keys, header-less empty TSV, the`<` regex).
 
 **Redundancy:** `_derive_censor_state` is a copy of `censor_state.derive_censor_state_from_sdtm`
 (SKILL.md says the module is used, but it is not). `_make_grpid` and the censoring rebuild are
@@ -86,6 +108,7 @@ stated three different ways (per patient / per run / per timepoint). The referen
 stale schema-v1 paths. `bmkb_template.json` comes pre-filled with the gold AMI/troponin values.
 
 **High level:**
+
 - SKILL.md never routes the agent to `best-definitions.md`, `sdtmig-guide.md` or `pitfalls.md`
   at the step where each is needed.
 - Step 5 needs `results.json` and `dm.json`, but nothing says how to build them.
@@ -101,6 +124,7 @@ stale schema-v1 paths. `bmkb_template.json` comes pre-filled with the gold AMI/t
 ---
 
 ## 2026-10-15 18:13 (supervisor)
+
 - **`_load_entity_names()` tidied.** It was the only loader that kept `//_` annotation keys,
   so it now strips them via `finalize_draft.strip_comments()` rather than a second private
   implementation of the same convention. This matters more now that the agent is told to
@@ -108,11 +132,12 @@ stale schema-v1 paths. `bmkb_template.json` comes pre-filled with the gold AMI/t
   maintains it, and is simply not surfaced to the conversion.
 - **A malformed cache now fails loudly.** It previously caught `(OSError, ValueError)` and
   returned `{}`, so a hand-edit that broke the JSON surfaced later as a confusing
-  "BM.BMENTNM is empty". A *missing* file is still not an error (the cache is optional); a
+  "BM.BMENTNM is empty". A _missing_ file is still not an error (the cache is optional); a
   file that exists but will not parse raises with the path and the parser message.
 - Verified all three paths (strip / missing / malformed) and the suite is still 4/4.
 
 ## 2026-10-15 18:10 (supervisor)
+
 - **Closed the `entity_names.json` gap in `SKILL.md`.** It was listed in the file tree but the
   agent was never told what to do with it, so any entity outside the cache produced an empty
   `BM.BMENTNM` with no way to recover. Step 4 now instructs the agent to record every
@@ -124,12 +149,14 @@ stale schema-v1 paths. `bmkb_template.json` comes pre-filled with the gold AMI/t
   the file left untouched as instructed.
 
 ## 2026-10-15 18:01 (supervisor)
+
 - **`README.md` em-dashes removed** (16 → 0). Replaced contextually rather than swapped for a
   single character: colons after list labels and in the Resources list, a comma mid-sentence,
   a semicolon where a new clause was doing the work, and one sentence split in two where a
   paired dash-as-parenthesis would otherwise have become comma soup.
 
 ## 2026-10-15 17:50 (supervisor)
+
 - **BEST attributed in `README.md`** — added the FDA-NIH BEST Resource to the Resources list.
   It was already fully cited in `references/best-definitions.md` (citation + homepage,
   glossary, contents-of-a-biomarker-description, and FDA pages), but two lines there pointed
@@ -138,6 +165,7 @@ stale schema-v1 paths. `bmkb_template.json` comes pre-filled with the gold AMI/t
   submission, verification of generated values, schema drift, and warranty/liability.
 
 ## 2026-10-15 17:37 (supervisor)
+
 - **`README.md`** — removed the Conventions section; added **Resource versions**, tabulating
   the three external standards the skill depends on (BCO / SDTM / SDTMIG) against the shipped
   copies; added the acknowledgement that this work is supported by BiomarkerKB.
@@ -147,6 +175,7 @@ stale schema-v1 paths. `bmkb_template.json` comes pre-filled with the gold AMI/t
   dead path, and the stale `notes/` reference (moved outside the repo) dropped.
 
 ## 2026-10-15 17:16 (supervisor)
+
 - **Removed the last schema-v2 remnants.** `_extract_evidence()` in `record_set_to_sdtm.py`
   read only fields that no longer exist (`evidence_source`, `biomarker_component_new`,
   `crossrefs`), so it always returned an empty list — dead code. Removed it and its call
@@ -154,13 +183,14 @@ stale schema-v1 paths. `bmkb_template.json` comes pre-filled with the gold AMI/t
 - **`assets/bm_row_template.json`** — dropped a stale COVID-19 example from the condition
   warning (the reference record has used AMI since schema v2).
 - The only surviving mention of a removed field is the deliberate warning in `pitfalls.md`
-  telling the agent *not* to emit them.
+  telling the agent _not_ to emit them.
 - Suite still 4/4.
 
 ## 2026-10-15 17:15 (supervisor) — `pitfalls.md` corrected; censor-state validation enforced
+
 - **Removed two obsolete pitfalls** left over from the BMKB v2 rewrite: the nested
   `biomarker_component_new[]` model (no longer in the submission schema) and the
-  `evidence_source` duplication. Replaced with the pitfalls that *are* current: emitting
+  `evidence_source` duplication. Replaced with the pitfalls that _are_ current: emitting
   BiomarkerKB-assigned fields, the five-field constraint, and the fact that the record
   carries no evidence.
 - **Corrected three wrong tBCO field paths** — `assay_performance` should be
@@ -170,12 +200,13 @@ stale schema-v1 paths. `bmkb_template.json` comes pre-filled with the gold AMI/t
   `measurable` is only a synonym. `pitfalls.md` had it the other way round, which would
   have taught the agent the wrong value.
 - **Fixed a silent-failure bug in `censor_state.make_sdtm_fields()`**: an unrecognised censor
-  state passed through as *quantifiable*, emitting a numeric `LBSTRESN` for a censored result
+  state passed through as _quantifiable_, emitting a numeric `LBSTRESN` for a censored result
   — the exact invalid-SDTM case §1 warns about. It now normalises the documented synonym
   (`measurable` → `quantifiable`) and raises on anything else.
 - Suite still 4/4.
 
 ## 2026-10-15 17:11 (supervisor)
+
 - **`SKILL.md` re-synced.** The previous terminology pass on this file was overwritten ~21s
   after it ran (its mtime post-dated every other file the pass touched), so the file still
   carried the old vocabulary and — more seriously — pointed 8 times at
@@ -188,13 +219,14 @@ stale schema-v1 paths. `bmkb_template.json` comes pre-filled with the gold AMI/t
 - **Suite back to 4/4** — the install symlink now resolves.
 
 ## 2026-10-15 17:08 (supervisor) — terminology: "component" → "record set"
+
 - **Resolved the vocabulary split** flagged earlier. The three-part output (tBCO + rBCO +
   BMKB record) is now consistently the **record set** across `SKILL.md`, `README.md`, the
   `references/` docs and the script docstrings.
 - **Scripts renamed:** `component_to_sdtm.py` → `record_set_to_sdtm.py`,
   `sdtm_to_component.py` → `sdtm_to_record_set.py`; the entry point
   `convert_component_to_sdtm()` → `convert_record_set_to_sdtm()`.
-- **Deliberately NOT renamed** — these are BiomarkerKB *schema field names*, not our concept:
+- **Deliberately NOT renamed** — these are BiomarkerKB _schema field names_, not our concept:
   `biomarker_component`, `biomarker_component_new`, `component_index`, and the tBCO's own
   `"components"` key in the assay extension. Verified they survived the pass intact.
 - Historical entries below keep the old wording.
