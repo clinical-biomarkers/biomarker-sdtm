@@ -95,10 +95,13 @@ def resolve_censor_state(
     ValueError
         If any threshold is missing (NaN or None-like).
     """
-    if lod is None or lloq is None or uloq is None:
+    missing = [n for n, v in (("LoD", lod), ("LLOQ", lloq), ("ULOQ", uloq))
+               if v is None]
+    if missing:
         raise ValueError(
-            "All three analytical-performance thresholds (LoD, LLOQ, ULOQ) "
-            "are required to resolve a censor state."
+            f"cannot resolve a censor state: tBCO analytical_performance "
+            f"{', '.join(missing)} is null. All three thresholds (LoD, LLOQ, "
+            f"ULOQ) are required."
         )
 
     if value < lod:
@@ -126,6 +129,14 @@ def make_sdtm_fields(
         ``lbstressn`` is the numeric value or ``None`` for censored results.
     """
     censor_state = normalise_censor_state(censor_state)
+
+    bound = {"below_lod": ("LoD", lod), "detected_below_lloq": ("LLOQ", lloq),
+             "above_uloq": ("ULOQ", uloq)}.get(censor_state)
+    if bound and bound[1] is None:
+        raise ValueError(
+            f"censor state {censor_state!r} needs the {bound[0]}, which is null "
+            f"in the tBCO analytical_performance"
+        )
 
     if censor_state == "below_lod":
         return (f"<{lod}", None)
@@ -285,6 +296,17 @@ def _self_test() -> None:
                 f"got '{state}', expected '{expected_state}'"
             )
 
+    # --- Null thresholds (template numbers are null until filled) ---
+    for call in (lambda: resolve_censor_state(0.02, None, LLOQ, ULOQ),
+                 lambda: make_sdtm_fields("below_lod", 0.004, None, LLOQ, ULOQ)):
+        try:
+            call()
+            errors.append("null threshold did not raise ValueError")
+        except ValueError:
+            pass
+    if make_sdtm_fields("quantifiable", 0.058, None, None, None) != ("0.058", 0.058):
+        errors.append("quantifiable result should not need the thresholds")
+
     # --- Report ---
     if errors:
         print("\nFAILED:")
@@ -294,7 +316,7 @@ def _self_test() -> None:
         import sys
         sys.exit(1)
 
-    print(f"\n  All {len(test_cases) + len(reverse_cases)} checks PASSED")
+    print(f"\n  All {len(test_cases) + len(reverse_cases) + 3} checks PASSED")
     print("  Censor states: below_lod, detected_below_lloq, quantifiable, above_uloq")
     print("  Both forward and reverse directions verified.")
     print("=" * 60)

@@ -46,7 +46,7 @@ into — write the artifact directly from the template and the documents.
 ## Prerequisites
 
 - Python 3.10+ with `scripts/` and `assets/` on the Python path (or run from the `scripts/` directory)
-- `jsonschema` 4.18+ pip package (required by `validate_bco.py` for IEEE 2791 schema conformance)
+- `jsonschema` pip package recommended (optional — structural validation works without it)
 - Source documents: assay spec, patient data table, and demographics
 
 ## Workflow — Forward direction
@@ -234,7 +234,7 @@ Exit code 0 = all valid. `validate_bco.py` checks:
 - The `etag` is a well-formed 64-char SHA-256 digest
 - No unfilled `PLACEHOLDER` strings (warns only)
 - Required fields are non-empty
-- Conformance to the IEEE 2791 JSON Schemas in `references/schemas/` (schema violations fail the file)
+- `jsonschema` conformance when the library is installed
 
 `finalize_draft.py --check` additionally verifies the etag actually _matches the content_.
 
@@ -359,7 +359,7 @@ muscle"`), then re-run the conversion.
 
 ### "jsonschema not available"
 
-**Fix:** `pip install jsonschema` (4.18+). Without it `validate_bco.py` fails every file, because schema conformance is part of validation.
+**Fix:** `pip install jsonschema` for full schema conformance. Structural validation works without it.
 
 ---
 

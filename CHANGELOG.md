@@ -8,47 +8,28 @@ Concise record of what changed and when. Newest first. Times are America/New_Yor
 
 ---
 
-## 2026-10-19 12:03 (fix) — mechanical script fixes from the 2026-10-19 review
+## 2026-10-19 12:03 (fix) — scripts: mechanical review fixes
 
-Only the findings that need no owner decision. B02 (censoring policy), B04 (entity
-vocabulary), B08 (round-trip design), H07 (roles) and P02/P04/P05 are untouched. No gold
-file in `examples/` was edited.
+Scripts only; no gold files edited. `python scripts/run_checks.py` runs every self-test plus a
+cell-by-cell forward-vs-xlsx gold comparison, and exits 1 on any failure.
 
-- **B01** `_get_assay_info()` now reads `assay.assay_name`. On the gold files, `ASSAYNAM` is
-  `TnI-Ultra` (it was `Tniultra`), `LBGRPID` and the SUPPLB `IDVARVAL` are `TNIULTRA`, and
-  `BMASSAY` / `BMSRCVL2` are `TnI-Ultra` (all three were `TNNI3TNIULTRA`). The path is also fixed in
-  `references/sdtmig-guide.md` (3 places) and in the reverse converter's `sdtm_extension`
-  block. Still saying `assay.name`: `assets/rbco_template.json`, the gold rBCO's
-  `supplb_derivation`, and one prose line in `pitfalls.md`.
-- **B05** `validate_bco.py` actually runs jsonschema now. It builds a `referencing.Registry`
-  from `references/schemas/*.json`, keyed by bare filename and by `$id`, and reports every
-  `iter_errors()` hit as a `SCHEMA` error that fails the file. If jsonschema is missing,
-  that is also a failure. SKILL.md no longer calls jsonschema optional. **The gold BCOs
-  now fail** (schema not loosened):
-  - tBCO, 14 errors: `io_domain.input_subdomain[0-3]` has `mediatype`, which is not allowed;
-    and `parametric_domain[0-4]` is missing `step` and has `rule` / `unit`, which are not
-    allowed.
-  - rBCO, 8 errors: `description_domain.pipeline_steps[1-4].prerequisite[0]` is a string
-    where the schema wants an object, and `io_domain.input_subdomain[0-3]` has `mediatype`.
-- **B07** `sdtm_to_record_set.py --self-test` exits 1 on failure. The hard-coded `True`
-  checks and the stale fields (`biomarker_id`, `recommended_name`, `evidence_source`) are
-  replaced by 42 equality checks against the gold tBCO, rBCO and BMKB JSON. A deliberately
-  corrupted SUPPLB makes it fail and exit 1.
-- **R01/R02** The reverse converter imports `censor_state.derive_censor_state_from_sdtm`
-  instead of keeping its own copy, and imports `_make_grpid` from `record_set_to_sdtm`.
-- **R04** Dead code removed: `_VAULT`, `PLACEHOLDER_RE`, unused imports, locals and
-  params (`build_bm(usubjid)`, `reconstruct_rbco(bm_rows)`, `reconstruct_bmkb(tbco,
-  studyid)` and its unused evidence parsing), the `generated_*_self_test.json` lookups in
-  both self-tests, and the schema-v1 fallbacks (`assessed_biomarker_entity` name,
-  `condition.recommended_name`, `best_roles`, `created`).
-- **B12** SUPPLB `CENSOR` rows come from the built LB rows, so `IDVARVAL` always equals the
-  emitted `LBSEQ` (an int). `idvarval` is normalised to int for the results lookup. A
-  mismatch between the number of LB rows and measurements raises an error.
-- **B11 (partial)** `LBBLFL` is `Y` or empty, never `N`. The gold xlsx still has `N` on
-  rows 2-3. `LBLOBXFL` and `VISITNUM` are still missing.
-- Self-tests: censor_state, finalize_draft, biomarker_accessions, validate_bmkb,
-  record_set_to_sdtm and sdtm_to_record_set pass. validate_bco exits 1 because of the
-  gold-file schema errors above.
+- **B01** Read `assay.assay_name` (was `assay.name`): ASSAYNAM `TnI-Ultra`, LBGRPID `TNIULTRA`,
+  BMASSAY `TnI-Ultra`. Also fixed in the reverse `sdtm_extension` paths.
+- **B05** `validate_bco.py` validates against `references/schemas/` through a local
+  `referencing.Registry`; schema errors fail the file, and jsonschema is now required.
+- **B07** Reverse self-test asserts 42 fields against the gold JSON and exits 1 on failure.
+- **R01/R02** Reverse uses `censor_state.derive_censor_state_from_sdtm` and the shared `_make_grpid`.
+- **R04** Dead code, unused params, `generated_*` lookups and schema-v1 fallbacks removed.
+- **B12** SUPPLB CENSOR `IDVARVAL` is taken from the built LB rows (= LBSEQ, int).
+- **B11 (partial)** LBBLFL is `Y` or null.
+- **P04** Null analytical limits are tolerated: LBLOD/LBLLOQ/LBULOQ are omitted, and a
+  censored result with no value and a null limit raises a clear `ValueError`, as does
+  `censor_state` on a null threshold.
+- **R05/F04** New `scripts/run_checks.py`. **P11** all scripts run from any cwd (verified).
+- **Open:** run_checks fails on (a) 22 gold BCO schema errors (tBCO: `io_domain` `mediatype`,
+  `parametric_domain` `step`/`rule`/`unit`; rBCO: `pipeline_steps[].prerequisite` strings,
+  `mediatype`) and (b) 5 xlsx cells that the gold JSON does not produce: LBTEST case ×3,
+  BMCOND case, BMRULE text. LBBLFL `N` in the xlsx is reported as a known deviation.
 
 ## 2026-10-15 18:13 (supervisor)
 - **`_load_entity_names()` tidied.** It was the only loader that kept `//_` annotation keys,

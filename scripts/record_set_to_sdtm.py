@@ -147,13 +147,21 @@ def _get_ref_hi(ext: dict) -> Optional[float]:
 
 
 def _get_analytical_perf(ext: dict) -> dict:
-    """Get analytical performance limits."""
-    ap = ext.get("analytical_performance", {})
+    """Get analytical performance limits; an unfilled limit is None (null)."""
+    ap = ext.get("analytical_performance") or {}
     return {
-        "lod": ap.get("limit_of_detection", {}).get("value"),
-        "lloq": ap.get("limit_of_quantitation", {}).get("value"),
-        "uloq": ap.get("upper_limit_of_quantitation", {}).get("value"),
+        "lod": (ap.get("limit_of_detection") or {}).get("value"),
+        "lloq": (ap.get("limit_of_quantitation") or {}).get("value"),
+        "uloq": (ap.get("upper_limit_of_quantitation") or {}).get("value"),
     }
+
+
+# Censored result with no supplied value → (operator, analytical limit) for LBORRES.
+_CENSOR_BOUND = {
+    "below_lod": ("<", "lod"),
+    "detected_below_lloq": ("<", "lloq"),
+    "above_uloq": (">", "uloq"),
+}
 
 
 def _sorted_measurements(rbco: dict) -> list[dict]:
@@ -236,22 +244,18 @@ def build_lb(
         lbstressn = result.get("lbstressn")
 
         # If no result supplied, reconstruct from censor_state
-        if not lborres and censor_state:
-            if censor_state == "below_lod":
-                lod = perf["lod"]
-                lborres = f"<{lod}" if lod else "<LOD"
-                lbstresc = lborres
-                lbstressn = None
-            elif censor_state == "detected_below_lloq":
-                lloq = perf["lloq"]
-                lborres = f"<{lloq}" if lloq else "<LLOQ"
-                lbstresc = lborres
-                lbstressn = None
-            elif censor_state == "above_uloq":
-                uloq = perf["uloq"]
-                lborres = f">{uloq}" if uloq else ">ULOQ"
-                lbstresc = lborres
-                lbstressn = None
+        if not lborres and censor_state in _CENSOR_BOUND:
+            op, limit = _CENSOR_BOUND[censor_state]
+            if perf[limit] is None:
+                raise ValueError(
+                    f"measurement idvarval={idvarval}: censor_state "
+                    f"{censor_state!r} has no result value and the tBCO "
+                    f"analytical_performance {limit.upper()} is null; supply "
+                    f"the result or the limit"
+                )
+            lborres = f"{op}{perf[limit]}"
+            lbstresc = lborres
+            lbstressn = None
 
         # LBNRIND
         lbnrind = _compute_nrind(lbstressn, ref_hi)
@@ -885,13 +889,16 @@ def main() -> None:
     if not args.tbco or not args.rbco or not args.bmkb or not args.results:
         parser.error("--tbco, --rbco, --bmkb, and --results are required (or use --self-test)")
 
-    sys.exit(
-        convert_record_set_to_sdtm(
+    try:
+        code = convert_record_set_to_sdtm(
             args.tbco, args.rbco, args.bmkb,
             args.results, args.dm, args.output_dir,
             evidence=[e.strip() for e in args.evidence.split(",") if e.strip()],
         )
-    )
+    except ValueError as e:
+        print(f"[ERROR] {e}")
+        code = 1
+    sys.exit(code)
 
 
 if __name__ == "__main__":

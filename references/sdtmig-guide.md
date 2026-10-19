@@ -140,7 +140,7 @@ BM ──BMBCOID──→ tBCO.object_id (links outside SDTM)
 
 | QNAM | QLABEL | Keyed On | Provenance | Source |
 |------|--------|----------|------------|--------|
-| ASSAYNAM | Assay Name | LBGRPID | **T** | tBCO `assay.assay_name` |
+| ASSAYNAM | Assay Name | LBGRPID | **T** | tBCO `assay.name` |
 | ASSAYPLT | Assay Platform | LBGRPID | **T** | tBCO `assay.platform` |
 | LBLOD | Limit of Detection | LBGRPID | **T** | tBCO `analytical_performance.limit_of_detection.value` |
 | LBLLOQ | Lower Limit of Quantitation | LBGRPID | **T** | tBCO `analytical_performance.lower_limit_of_quantitation.value` |
@@ -179,7 +179,7 @@ BM ──BMBCOID──→ tBCO.object_id (links outside SDTM)
 | BMROLE | Req | **K** | BiomarkerKB `best_biomarker_role` | MONITORING |
 | BMCOND | Req | **K** | BiomarkerKB `condition` | Acute myocardial infarction |
 | BMCONDID | Req | **K** | BiomarkerKB `condition_id` | DOID:5844 |
-| BMASSAY | Req | **T** | tBCO `assay.assay_name` | TnI-Ultra |
+| BMASSAY | Req | **T** | tBCO `assay.name` | TnI-Ultra |
 | BMNAM | Perm | **T** | tBCO `assay.manufacturer` | Siemens |
 | BMPLAT | Perm | **T** | tBCO `assay.platform` | ADVIA Centaur XP |
 | BMMETHOD | Perm | **T** | tBCO `assay.method` | IMMUNOASSAY |
@@ -229,7 +229,7 @@ The skill must also reconstruct the record set given SDTM domains:
    - LBSTNRHI → `reference_limits.upper`
    - LBSPEC → `specimen_requirements.type`
    - LBMETHOD → `assay.method`
-   - SUPPLB.ASSAYNAM → `assay.assay_name`
+   - SUPPLB.ASSAYNAM → `assay.name`
    - SUPPLB.ASSAYPLT → `assay.platform`
    - SUPPLB.LBLOD/LBLLOQ/LBULOQ → `analytical_performance.*`
    - BM.BMRULE → `interpretation_rules`
