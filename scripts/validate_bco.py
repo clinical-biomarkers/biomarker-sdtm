@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """validate_bco.py — Validate a BioCompute Object against IEEE 2791.
 
-Checks structural completeness (all 8 domains, required fields) and etag
-well-formedness. Unfilled PLACEHOLDER values and NOTES are reported as
-**warnings** — a record may legitimately not supply every field. When the
-``jsonschema`` library is available, schema conformance is also checked.
+Checks structural completeness (all 8 domains, required fields), etag
+well-formedness, and conformance to the shipped IEEE 2791 JSON Schemas
+(references/schemas/, via ``jsonschema``). Schema violations are errors.
+Unfilled PLACEHOLDER values and NOTE lines are reported as **warnings** — a
+record may legitimately not supply every field.
 
 Usage
 -----
@@ -16,66 +17,63 @@ Exit code: 0 if all files valid, 1 if any fail.
 
 from __future__ import annotations
 
+import glob
 import json
 import os
 import re
 import sys
-from typing import Any, Optional
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_VAULT = os.path.abspath(os.path.join(_HERE, "..", "..", "..", "..", ".."))
-_REF = os.path.join(_HERE, "..", "references", "schemas")
-_SCHEMAS: dict[str, str] = {
-    "root": os.path.join(_REF, "2791object.json"),
-    "provenance_domain": os.path.join(_REF, "provenance_domain.json"),
-    "usability_domain": os.path.join(_REF, "usability_domain.json"),
-    "description_domain": os.path.join(_REF, "description_domain.json"),
-    "execution_domain": os.path.join(_REF, "execution_domain.json"),
-    "parametric_domain": os.path.join(_REF, "parametric_domain.json"),
-    "io_domain": os.path.join(_REF, "io_domain.json"),
-    "error_domain": os.path.join(_REF, "error_domain.json"),
-}
+_SCHEMA_DIR = os.path.join(_HERE, "..", "references", "schemas")
+_ROOT_SCHEMA = "2791object.json"
 
 # ---------------------------------------------------------------------------
 # Schema loader (lazy)
 # ---------------------------------------------------------------------------
 
-_JSONSCHEMA: Optional[Any] = None
-_SCHEMA_CACHE: dict[str, Any] = {}
+_VALIDATOR: Any = None
 
 
-def _try_load_jsonschema() -> bool:
-    """Try to import jsonschema. Returns True if available."""
-    global _JSONSCHEMA
-    if _JSONSCHEMA is not None and _JSONSCHEMA is not False:
-        return True
-    try:
-        import jsonschema as _js_mod
-        _JSONSCHEMA = _js_mod
-        return True
-    except ImportError:
-        _JSONSCHEMA = False  # sentinel
-        return False
+def _schema_validator() -> Any:
+    """Build (once) a jsonschema validator for 2791object.json.
 
+    The domain schemas reference each other by bare filename
+    (``"$ref": "provenance_domain.json"``) and declare a w3id.org ``$id``.
+    Each is registered under both, so every ``$ref`` resolves locally and
+    nothing is fetched over the network.
+    """
+    global _VALIDATOR
+    if _VALIDATOR is None:
+        import jsonschema
+        from referencing import Registry, Resource
+        from referencing.jsonschema import DRAFT7
 
-def _load_schema(name: str) -> Optional[dict]:
-    """Load a JSON Schema from disk (cached)."""
-    if name in _SCHEMA_CACHE:
-        return _SCHEMA_CACHE[name]
-    path = _SCHEMAS.get(name)
-    if not path or not os.path.exists(path):
-        return None
-    with open(path) as f:
-        _SCHEMA_CACHE[name] = json.load(f)
-    return _SCHEMA_CACHE[name]
+        registry = Registry()
+        root = None
+        for path in sorted(glob.glob(os.path.join(_SCHEMA_DIR, "*.json"))):
+            with open(path) as f:
+                contents = json.load(f)
+            resource = Resource.from_contents(contents, default_specification=DRAFT7)
+            name = os.path.basename(path)
+            registry = registry.with_resource(name, resource)
+            if "$id" in contents:
+                registry = registry.with_resource(contents["$id"], resource)
+            if name == _ROOT_SCHEMA:
+                root = contents
+        if root is None:
+            raise FileNotFoundError(os.path.join(_SCHEMA_DIR, _ROOT_SCHEMA))
+        cls = jsonschema.validators.validator_for(root)
+        _VALIDATOR = cls(root, registry=registry)
+    return _VALIDATOR
 
 
 # ---------------------------------------------------------------------------
-# Structural checks (no external dependencies)
+# Structural checks
 # ---------------------------------------------------------------------------
 
 # IEEE 2791 root-level required fields (from 2791object.json required array)
@@ -99,7 +97,6 @@ REQUIRED_PARAM_ITEM = {"param", "value", "step"}
 REQUIRED_PIPELINE_STEP = {"step_number", "name", "description", "input_list", "output_list"}
 
 ETAG_PATTERN = re.compile(r"^[A-Fa-f0-9]{64}$")
-PLACEHOLDER_RE = re.compile(r"PLACEHOLDER")
 SPEC_VERSION_URI_PREFIX = "https://w3id.org/ieee/ieee-2791-schema/"
 
 
@@ -238,7 +235,7 @@ def validate_bco(obj: dict, filepath: str = "<unknown>") -> list[str]:
     _check_placeholders(obj, errors)
 
     # -----------------------------------------------------------------------
-    # 14) Schema validation (jsonschema if available)
+    # 14) Schema validation (IEEE 2791 JSON Schema)
     # -----------------------------------------------------------------------
     _do_schema_validation(obj, errors)
 
@@ -288,24 +285,17 @@ def _check_placeholders(obj: Any, errors: list[str], path: str = "$") -> None:
 
 
 def _do_schema_validation(obj: dict, errors: list[str]) -> None:
-    """Validate against the IEEE 2791 JSON Schema (if jsonschema available)."""
-    if not _try_load_jsonschema():
-        return  # no jsonschema — skip
-
-    root_schema = _load_schema("root")
-    if root_schema is None:
-        errors.append("Schema validation skipped: 2791object.json not found")
-        return
-
+    """Validate against the IEEE 2791 JSON Schema; every violation is an error."""
     try:
-        _JSONSCHEMA.validate(obj, root_schema)
-    except _JSONSCHEMA.exceptions.ValidationError as e:
-        # Collapse the path and message
-        path = " → ".join(str(p) for p in e.absolute_path) if e.absolute_path else "root"
-        errors.append(f"NOTE: schema validation found — {path}: {e.message}")
-    except Exception as e:
-        # jsonschema may fail on unresolvable $ref (remote URIs) — non-fatal
-        errors.append(f"NOTE: schema validation skipped — {type(e).__name__}: {e}")
+        validator = _schema_validator()
+    except ImportError as e:
+        errors.append(f"SCHEMA validation unavailable ({e}); "
+                      f"run `pip install jsonschema` (4.18+)")
+        return
+    for e in sorted(validator.iter_errors(obj),
+                    key=lambda e: [str(p) for p in e.absolute_path]):
+        path = "/".join(str(p) for p in e.absolute_path) or "root"
+        errors.append(f"SCHEMA {path}: {e.message}")
 
 
 # ---------------------------------------------------------------------------
@@ -379,7 +369,7 @@ def _is_bco(obj: dict) -> bool:
 
 
 def _self_test() -> int:
-    """Validate the Troponin I gold files + generated files."""
+    """Validate the Troponin I gold files."""
     print("=" * 60)
     print("  validate_bco.py — Self-test")
     print("=" * 60)
@@ -393,14 +383,8 @@ def _self_test() -> int:
         "Troponin_I_patient1_rBCO.json",
         "Troponin_I_biomarkerKB.json",
     ]
-    generated_files = [
-        "generated_tBCO_self_test.json",
-        "generated_rBCO_self_test.json",
-        "generated_BMKB_self_test.json",
-    ]
-
     files_to_check = []
-    for fname in generated_files + gold_files:
+    for fname in gold_files:
         path = os.path.join(tropo_dir, fname)
         if os.path.exists(path):
             files_to_check.append((fname, path))
@@ -458,7 +442,7 @@ def _self_test() -> int:
     n_bco = total_bco
     n_non_bco = len(non_bco_files)
     print(f"\n  {n_files} file(s): {n_bco} BCO + {n_non_bco} non-BCO (BMKB); "
-          f"{total_bco_passed}/{n_bco} BCO files structurally valid")
+          f"{total_bco_passed}/{n_bco} BCO files valid (structure + schema)")
     print("=" * 60)
 
     if total_bco_passed < total_bco:

@@ -152,7 +152,7 @@ def derive_censor_state_from_sdtm(
 ) -> str:
     """Infer censor_state from SDTM LB fields (reverse transform).
 
-    Heuristic (matches ``sdtm_to_record_set.py``):
+    Heuristic (used by ``sdtm_to_record_set.py`` when SUPPLB has no CENSOR):
 
     1. If LBSTRESN is populated → check thresholds (quantifiable / above_uloq).
     2. If LBSTRESN is empty → examine LBORRES pattern (``<N``, ``>N``, text).

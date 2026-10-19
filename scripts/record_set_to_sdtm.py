@@ -41,8 +41,7 @@ import json
 import os
 import re
 import sys
-from copy import deepcopy
-from typing import Any, Optional
+from typing import Optional
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from finalize_draft import strip_comments  # noqa: E402
@@ -53,7 +52,6 @@ from finalize_draft import strip_comments  # noqa: E402
 # ---------------------------------------------------------------------------
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_VAULT = os.path.abspath(os.path.join(_HERE, "..", "..", "..", "..", ".."))
 _TROPI = os.path.join(
     _HERE, "..", "examples", "troponin_I"
 )
@@ -81,11 +79,12 @@ def _make_grpid(name: str) -> str:
 def _get_assay_info(ext: dict) -> dict[str, str]:
     """Extract assay name and platform from the extension's assay_protocol_extension.
 
-    The generated tBCO stores these under ``assay`` sub-dict.
+    The tBCO stores these under the ``assay`` sub-dict as ``assay_name`` and
+    ``platform`` (see assets/tbco_template.json).
     Handles missing/None assay section gracefully.
     """
     assay = ext.get("assay") or {}
-    aname = assay.get("name") or ""
+    aname = assay.get("assay_name") or ""
     aplat = assay.get("platform") or ""
     return {"name": aname, "platform": aplat}
 
@@ -157,6 +156,17 @@ def _get_analytical_perf(ext: dict) -> dict:
     }
 
 
+def _sorted_measurements(rbco: dict) -> list[dict]:
+    """rBCO measurements in LBSEQ order (by idvarval, chronological).
+
+    build_lb() numbers LB rows in this order, and build_supplb() pairs each
+    LB row with its measurement by position, so both must use this helper.
+    """
+    ext_r = rbco.get("extension_domain", [{}])[0].get("assay_run_extension", {})
+    return sorted(ext_r.get("measurements", []),
+                  key=lambda m: int(m.get("idvarval", 0)))
+
+
 # ---------------------------------------------------------------------------
 # LB dataset builder
 # ---------------------------------------------------------------------------
@@ -174,15 +184,10 @@ def build_lb(
     (keys matching the xlsx column headers).
     """
     ext_t = tbco.get("extension_domain", [{}])[0].get("assay_protocol_extension", {})
-    ext_r = rbco.get("extension_domain", [{}])[0].get("assay_run_extension", {})
-    measurements = ext_r.get("measurements", [])
-
     # --- tBCO-derived constants for all rows ---
     grpid = _lb_grpid(tbco)
     lbtestcd = _lbtestcd_from_tbco(tbco)
 
-    # Assay info
-    info = _get_assay_info(ext_t)
     target = ext_t.get("target", {})
     lbtest = _enshorten(target.get("analyte_name", ""), 40)
     if not lbtest or "PLACEHOLDER" in lbtest:
@@ -217,16 +222,11 @@ def build_lb(
         if vid is not None:
             results_by_idvar[int(vid)] = r
 
-    # Sort measurements by idvarval (chronological order)
-    sorted_meas = sorted(measurements, key=lambda m: int(m.get("idvarval", 0)))
-
     lb_rows: list[dict] = []
-    lbseq = 0
     is_first_visit = True  # only the first chrono visit gets baseline Y
 
-    for m in sorted_meas:
-        lbseq += 1
-        idvarval = m.get("idvarval", lbseq)
+    for lbseq, m in enumerate(_sorted_measurements(rbco), start=1):
+        idvarval = int(m.get("idvarval", lbseq))
         result = results_by_idvar.get(idvarval, {})
         censor_state = m.get("censor_state", "")
 
@@ -256,9 +256,9 @@ def build_lb(
         # LBNRIND
         lbnrind = _compute_nrind(lbstressn, ref_hi)
 
-        # Baseline flag
+        # Baseline flag — SDTMIG allows only "Y" or null
         visit = m.get("visit", "")
-        lblfl = "Y" if is_first_visit else "N"
+        lblfl = "Y" if is_first_visit else ""
         is_first_visit = False
 
         row = {
@@ -305,11 +305,10 @@ def build_supplb(
     """Build SUPPLB rows.
 
     Assay-level qualifiers (ASSAYNAM, ASSAYPLT, LBLOD, LBLLOQ, LBULOQ, RBCOID)
-    — keyed on LBGRPID.  Per-result qualifier (CENSOR) — keyed on LBSEQ.
+    — keyed on LBGRPID.  Per-result qualifier (CENSOR) — keyed on LBSEQ, taken
+    from the built *lb_rows* so IDVARVAL always equals the emitted LBSEQ.
     """
     ext_t = tbco.get("extension_domain", [{}])[0].get("assay_protocol_extension", {})
-    ext_r = rbco.get("extension_domain", [{}])[0].get("assay_run_extension", {})
-    measurements = ext_r.get("measurements", [])
     grpid = _lb_grpid(tbco)
     info = _get_assay_info(ext_t)
     aname = info["name"]
@@ -325,7 +324,7 @@ def build_supplb(
         "USUBJID": usubjid,
     }
 
-    def add_row(qnam: str, qlabel: str, qval: str, idvar: str, idvarval: str,
+    def add_row(qnam: str, qlabel: str, qval: str, idvar: str, idvarval: str | int,
                 qorig: str = "Assigned", qeval: str = "VENDOR") -> None:
         rows.append({
             **supplb_base,
@@ -379,12 +378,17 @@ def build_supplb(
             "LBGRPID", grpid, qorig="Assigned", qeval="SPONSOR")
 
     # --- Per-result (keyed on LBSEQ) — CENSOR state ---
-    for m in measurements:
-        idvarval = m.get("idvarval", 0)
+    measurements = _sorted_measurements(rbco)
+    if len(measurements) != len(lb_rows):
+        raise ValueError(
+            f"build_supplb: {len(lb_rows)} LB rows but {len(measurements)} "
+            f"rBCO measurements; LB rows must be built from the same rBCO"
+        )
+    for lb_row, m in zip(lb_rows, measurements):
         censor = m.get("censor_state", "")
         if censor:
             add_row("CENSOR", "Censoring State", censor,
-                    "LBSEQ", str(idvarval), qorig="Derived", qeval="SPONSOR")
+                    "LBSEQ", lb_row["LBSEQ"], qorig="Derived", qeval="SPONSOR")
 
     return rows
 
@@ -400,22 +404,13 @@ def _extract_bmkb_entity(bmkb: dict) -> dict[str, str]:
     fields — ``component_index``, ``entity_index``, ``assessed_biomarker_entity_id``,
     ``assessed_entity_type``, ``biomarker``. The entity *name* is not part of the
     record; resolve it from the accession when a name is required (BM.BMENTNM).
-
-    A legacy ``assessed_biomarker_entity`` name, if present, is still honoured.
     """
     flat = bmkb.get("biomarker_component", [])
     if not flat:
-        return {"name": "", "id": "", "type": "", "cv": ""}
+        return {"id": "", "type": "", "cv": ""}
 
     fc = flat[0]
-    ent_name = ""
-    entity = fc.get("assessed_biomarker_entity")
-    if isinstance(entity, dict):
-        raw = entity.get("recommended_name") or entity.get("name") or ""
-        ent_name = raw.strip("'\" ") if isinstance(raw, str) else str(raw)
-
     return {
-        "name": ent_name,
         "id": fc.get("assessed_biomarker_entity_id", ""),
         "type": fc.get("assessed_entity_type", ""),
         "cv": fc.get("biomarker", ""),
@@ -425,10 +420,7 @@ def _extract_bmkb_entity(bmkb: dict) -> dict[str, str]:
 def _extract_condition(bmkb: dict) -> dict[str, str]:
     """Extract condition from BMKB."""
     cond = bmkb.get("condition") or {}
-    cond_id = cond.get("id", "")
-    rn = cond.get("recommended_name") or {}
-    cond_name = rn.get("name", "") or cond.get("name", "")
-    return {"name": cond_name, "id": cond_id}
+    return {"name": cond.get("name", ""), "id": cond.get("id", "")}
 
 
 # ---------------------------------------------------------------------------
@@ -464,15 +456,13 @@ def _load_entity_names() -> dict:
     return _ENTITY_NAMES_CACHE
 
 
-def _resolve_entity_name(entity_id: str, fallback: str = "") -> str:
+def _resolve_entity_name(entity_id: str) -> str:
     """Resolve an entity name from its accession.
 
     The BMKB submission record carries the accession, not the name, so the name
     is resolved from the accession (UniProt / CO / GlyTouCan per bmkb-model.md
-    §7). A legacy name on the record, if any, wins as ``fallback``.
+    §7).
     """
-    if fallback:
-        return fallback
     if not entity_id:
         return ""
     return _load_entity_names().get(entity_id, "")
@@ -483,7 +473,6 @@ def build_bm(
     bmkb: dict,
     studyid: str,
     grpid: str,
-    usubjid: str = "",
     evidence: Optional[list] = None,
 ) -> list[dict]:
     """Build the BM (biomarker context) dataset.
@@ -497,14 +486,13 @@ def build_bm(
     ext_t = tbco.get("extension_domain", [{}])[0].get("assay_protocol_extension", {})
     info = _get_assay_info(ext_t)
     spec_req = ext_t.get("specimen_requirements", {})
-    target = ext_t.get("target", {})
     irules = ext_t.get("interpretation_rules", [])
 
     tbco_object_id = tbco.get("object_id", "")
 
     # Entity info from BMKB — the name is resolved from the accession.
     entity = _extract_bmkb_entity(bmkb)
-    entity["name"] = _resolve_entity_name(entity["id"], entity["name"])
+    entity["name"] = _resolve_entity_name(entity["id"])
     cond = _extract_condition(bmkb)
 
     # Evidence: the BMKB submission record carries none, so it comes from the
@@ -516,7 +504,7 @@ def build_bm(
 
     # BEST role
     role = ""
-    broles = bmkb.get("best_roles", []) or bmkb.get("best_biomarker_role", [])
+    broles = bmkb.get("best_biomarker_role", [])
     if broles:
         role = broles[0].get("role", "").upper()
 
@@ -560,7 +548,7 @@ def build_bm(
         "BMRULE": rule_text,
         "BMEVID": evidence_str,
         "BMASSRT": "Sponsor Biomarker Review Board",
-        "BMASSDTC": (bmkb.get("provenance") or {}).get("date", "") or bmkb.get("created", ""),
+        "BMASSDTC": (bmkb.get("provenance") or {}).get("date", ""),
     }
     return [row]
 
@@ -650,7 +638,7 @@ def convert_record_set_to_sdtm(
     # --- Build datasets ---
     lb_rows = build_lb(tbco, rbco, results_list, studyid, usubjid)
     supplb_rows = build_supplb(tbco, rbco, lb_rows, studyid, usubjid)
-    bm_rows = build_bm(tbco, bmkb, studyid, grpid, usubjid, evidence=evidence)
+    bm_rows = build_bm(tbco, bmkb, studyid, grpid, evidence=evidence)
     dm_rows = build_dm(studyid, dm_list)
 
     # --- Write TSVs ---
@@ -667,38 +655,16 @@ def convert_record_set_to_sdtm(
 # ---------------------------------------------------------------------------
 
 def _self_test() -> None:
-    """Build SDTM datasets from the GENERATED Troponin I files and verify
-    structural and content correctness against the xlsx reference.
-
-    Verifies the SDTM output against the gold Troponin I package (AMI condition).
+    """Build SDTM datasets from the gold Troponin I record set and verify
+    structural and content correctness against the xlsx reference (patient 1).
     """
     print("=" * 60)
     print("  record_set_to_sdtm.py — Self-test")
     print("=" * 60)
 
-    # Prefer generated files, fall back to gold
-    def _first_of(*paths):
-        for p in paths:
-            if os.path.exists(p):
-                return p
-        return None
-
-    tbco_path = _first_of(
-        os.path.join(_TROPI, "generated_tBCO_self_test.json"),
-        os.path.join(_TROPI, "Troponin_I_tBCO.json"),
-    )
-    rbco_path = _first_of(
-        os.path.join(_TROPI, "generated_rBCO_self_test.json"),
-        os.path.join(_TROPI, "Troponin_I_patient1_rBCO.json"),
-    )
-    bmkb_path = _first_of(
-        os.path.join(_TROPI, "generated_BMKB_self_test.json"),
-        os.path.join(_TROPI, "Troponin_I_biomarkerKB.json"),
-    )
-
-    if not all([tbco_path, rbco_path, bmkb_path]):
-        print("[SKIP] No Troponin I data files found")
-        return
+    tbco_path = os.path.join(_TROPI, "Troponin_I_tBCO.json")
+    rbco_path = os.path.join(_TROPI, "Troponin_I_patient1_rBCO.json")
+    bmkb_path = os.path.join(_TROPI, "Troponin_I_biomarkerKB.json")
 
     tbco = _load_json(tbco_path)
     rbco = _load_json(rbco_path)
@@ -723,16 +689,14 @@ def _self_test() -> None:
     usubjid = ext_r.get("usubjid", "BM-2026-01-001")
     grpid = _lb_grpid(tbco)
 
-    using_generated = "generated" in tbco_path
-    print(f"\n  Files: {'generated' if using_generated else 'gold'} "
-          f"(group={grpid}), Subject: {usubjid}")
+    print(f"\n  Files: gold (group={grpid}), Subject: {usubjid}")
 
     # --- Build ---
     # Evidence lives in the study documents, not the BMKB record.
     evidence = ["PMID:19710485"]
     lb_rows = build_lb(tbco, rbco, results_list, studyid, usubjid)
     supplb_rows = build_supplb(tbco, rbco, lb_rows, studyid, usubjid)
-    bm_rows = build_bm(tbco, bmkb, studyid, grpid, usubjid, evidence=evidence)
+    bm_rows = build_bm(tbco, bmkb, studyid, grpid, evidence=evidence)
     dm_rows = build_dm(studyid, dm_list)
 
     # --- Verify ---
@@ -750,10 +714,10 @@ def _self_test() -> None:
              "nrind": "NORMAL", "blfl": "Y",
              "visit": "ADMISSION", "dtc": "2026-03-15T08:10"},
             {"seq": 2, "orres": "0.058", "stresn": "0.058",
-             "nrind": "HIGH", "blfl": "N",
+             "nrind": "HIGH", "blfl": "",
              "visit": "3 HOURS", "dtc": "2026-03-15T11:10"},
             {"seq": 3, "orres": "0.094", "stresn": "0.094",
-             "nrind": "HIGH", "blfl": "N",
+             "nrind": "HIGH", "blfl": "",
              "visit": "6 HOURS", "dtc": "2026-03-15T14:10"},
         ]
 
@@ -772,15 +736,15 @@ def _self_test() -> None:
                 if str(got) != str(v):
                     err(f"LB[{i}].{col}: got '{got}', expected '{v}'")
 
-        # Check group ID matches (dynamic expectation)
+        # Group ID comes from tBCO assay.assay_name (gold xlsx: TNIULTRA)
         for i in range(3):
-            if lb_rows[i]["LBGRPID"] != grpid:
-                err(f"LB[{i}].LBGRPID: {lb_rows[i]['LBGRPID']} != {grpid}")
+            if lb_rows[i]["LBGRPID"] != "TNIULTRA":
+                err(f"LB[{i}].LBGRPID: got '{lb_rows[i]['LBGRPID']}', expected 'TNIULTRA'")
 
         # Check common assay-level fields (row 0 is representative)
         r0 = lb_rows[0]
         common_checks = [
-            ("LBTESTCD", lb_rows[0]["LBTESTCD"]),
+            ("LBTESTCD", "TNNI3"),
             ("LBORRESU", "ng/mL"),
             ("LBSTRESU", "ng/mL"),
             ("LBSPEC", "SERUM"),
@@ -810,16 +774,26 @@ def _self_test() -> None:
                 err(f"SUPPLB[{i}].QNAM: got {qnams[i]}, expected {eq}")
                 break
 
-        # CENSOR values
+        # CENSOR values, and IDVARVAL must point at the emitted LBSEQ
         censor_rows = [r for r in supplb_rows if r["QNAM"] == "CENSOR"]
         expected_censors = ["detected_below_lloq", "quantifiable", "quantifiable"]
         for i, (cr, ec) in enumerate(zip(censor_rows, expected_censors)):
             if cr["QVAL"] != ec:
                 err(f"CENSOR[{i}].QVAL: got {cr['QVAL']}, expected {ec}")
+        lbseqs = [r["LBSEQ"] for r in lb_rows]
+        idvarvals = [r["IDVARVAL"] for r in censor_rows]
+        if idvarvals != lbseqs:
+            err(f"CENSOR IDVARVAL {idvarvals} != LBSEQ {lbseqs}")
 
         # Assay-level QVAL content
         for r in supplb_rows:
-            if r["QNAM"] == "LBLOD" and r["QVAL"] != "0.006":
+            if r["IDVAR"] == "LBGRPID" and r["IDVARVAL"] != "TNIULTRA":
+                err(f"{r['QNAM']}.IDVARVAL: got {r['IDVARVAL']}, expected TNIULTRA")
+            if r["QNAM"] == "ASSAYNAM" and r["QVAL"] != "TnI-Ultra":
+                err(f"ASSAYNAM.QVAL: got {r['QVAL']}, expected TnI-Ultra")
+            elif r["QNAM"] == "ASSAYPLT" and r["QVAL"] != "ADVIA Centaur XP":
+                err(f"ASSAYPLT.QVAL: got {r['QVAL']}, expected ADVIA Centaur XP")
+            elif r["QNAM"] == "LBLOD" and r["QVAL"] != "0.006":
                 err(f"LBLOD.QVAL: got {r['QVAL']}, expected 0.006")
             elif r["QNAM"] == "LBLLOQ" and r["QVAL"] != "0.03":
                 err(f"LBLLOQ.QVAL: got {r['QVAL']}, expected 0.03")
@@ -835,6 +809,10 @@ def _self_test() -> None:
             err("BM.BMENTNM is empty")
         if not bm.get("BMENTID", ""):
             err("BM.BMENTID is empty")
+        if bm.get("BMASSAY") != "TnI-Ultra":
+            err(f"BM.BMASSAY: got {bm.get('BMASSAY')}, expected TnI-Ultra")
+        if bm.get("BMSRCVL2") != "TnI-Ultra":
+            err(f"BM.BMSRCVL2: got {bm.get('BMSRCVL2')}, expected TnI-Ultra")
         if bm.get("BMSRCDOM") != "LB":
             err(f"BM.BMSRCDOM: got {bm.get('BMSRCDOM')}, expected LB")
         if bm.get("BMSRCVAR") != "LBTESTCD":

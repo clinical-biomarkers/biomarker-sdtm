@@ -8,6 +8,48 @@ Concise record of what changed and when. Newest first. Times are America/New_Yor
 
 ---
 
+## 2026-10-19 12:03 (fix) — mechanical script fixes from the 2026-10-19 review
+
+Only the findings that need no owner decision. B02 (censoring policy), B04 (entity
+vocabulary), B08 (round-trip design), H07 (roles) and P02/P04/P05 are untouched. No gold
+file in `examples/` was edited.
+
+- **B01** `_get_assay_info()` now reads `assay.assay_name`. On the gold files, `ASSAYNAM` is
+  `TnI-Ultra` (it was `Tniultra`), `LBGRPID` and the SUPPLB `IDVARVAL` are `TNIULTRA`, and
+  `BMASSAY` / `BMSRCVL2` are `TnI-Ultra` (all three were `TNNI3TNIULTRA`). The path is also fixed in
+  `references/sdtmig-guide.md` (3 places) and in the reverse converter's `sdtm_extension`
+  block. Still saying `assay.name`: `assets/rbco_template.json`, the gold rBCO's
+  `supplb_derivation`, and one prose line in `pitfalls.md`.
+- **B05** `validate_bco.py` actually runs jsonschema now. It builds a `referencing.Registry`
+  from `references/schemas/*.json`, keyed by bare filename and by `$id`, and reports every
+  `iter_errors()` hit as a `SCHEMA` error that fails the file. If jsonschema is missing,
+  that is also a failure. SKILL.md no longer calls jsonschema optional. **The gold BCOs
+  now fail** (schema not loosened):
+  - tBCO, 14 errors: `io_domain.input_subdomain[0-3]` has `mediatype`, which is not allowed;
+    and `parametric_domain[0-4]` is missing `step` and has `rule` / `unit`, which are not
+    allowed.
+  - rBCO, 8 errors: `description_domain.pipeline_steps[1-4].prerequisite[0]` is a string
+    where the schema wants an object, and `io_domain.input_subdomain[0-3]` has `mediatype`.
+- **B07** `sdtm_to_record_set.py --self-test` exits 1 on failure. The hard-coded `True`
+  checks and the stale fields (`biomarker_id`, `recommended_name`, `evidence_source`) are
+  replaced by 42 equality checks against the gold tBCO, rBCO and BMKB JSON. A deliberately
+  corrupted SUPPLB makes it fail and exit 1.
+- **R01/R02** The reverse converter imports `censor_state.derive_censor_state_from_sdtm`
+  instead of keeping its own copy, and imports `_make_grpid` from `record_set_to_sdtm`.
+- **R04** Dead code removed: `_VAULT`, `PLACEHOLDER_RE`, unused imports, locals and
+  params (`build_bm(usubjid)`, `reconstruct_rbco(bm_rows)`, `reconstruct_bmkb(tbco,
+  studyid)` and its unused evidence parsing), the `generated_*_self_test.json` lookups in
+  both self-tests, and the schema-v1 fallbacks (`assessed_biomarker_entity` name,
+  `condition.recommended_name`, `best_roles`, `created`).
+- **B12** SUPPLB `CENSOR` rows come from the built LB rows, so `IDVARVAL` always equals the
+  emitted `LBSEQ` (an int). `idvarval` is normalised to int for the results lookup. A
+  mismatch between the number of LB rows and measurements raises an error.
+- **B11 (partial)** `LBBLFL` is `Y` or empty, never `N`. The gold xlsx still has `N` on
+  rows 2-3. `LBLOBXFL` and `VISITNUM` are still missing.
+- Self-tests: censor_state, finalize_draft, biomarker_accessions, validate_bmkb,
+  record_set_to_sdtm and sdtm_to_record_set pass. validate_bco exits 1 because of the
+  gold-file schema errors above.
+
 ## 2026-10-15 18:13 (supervisor)
 - **`_load_entity_names()` tidied.** It was the only loader that kept `//_` annotation keys,
   so it now strips them via `finalize_draft.strip_comments()` rather than a second private
